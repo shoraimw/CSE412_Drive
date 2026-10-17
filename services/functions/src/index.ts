@@ -219,9 +219,16 @@ export const registerRentalVehicle = onCall(options, async request => {
   const owner = await db.doc("ownerProfiles/" + uid).get();
   requirePresent(owner.get("approvalStatus") === "approved", "Owner approval is required.");
   const vehicle = db.collection("vehicles").doc();
-  await vehicle.create({
-    ...input, ownerId: uid, approvalStatus: "pending", rentalEnabled: false,
-    currency: "BDT", createdAt: FieldValue.serverTimestamp()
+  const {plate, ...publicListing} = input;
+  await db.runTransaction(async tx => {
+    tx.create(vehicle, {
+      ...publicListing, ownerId: uid, approvalStatus: "pending", rentalEnabled: false,
+      currency: "BDT", createdAt: FieldValue.serverTimestamp()
+    });
+    // Plate/registration data is server-only, not part of publicly listed vehicles.
+    tx.create(db.doc("vehiclePrivate/" + vehicle.id), {
+      ownerId: uid, plate, createdAt: FieldValue.serverTimestamp()
+    });
   });
   return {vehicleId: vehicle.id, status: "pending"};
 });
@@ -691,4 +698,25 @@ export const publishPricingConfig = onCall(options, async request => {
     });
   });
   return {version: input.version, published: true};
+});
+
+
+// Allows a rider to exit a stalled matching request. All offers issued in
+// that attempt expire before the state can transition to no_driver_found.
+export const finalizeUnmatchedRide = onCall(options, async request => {
+  const uid = authenticated(request);
+  const input = parse(rideIdSchema, request.data);
+  const rideRef = db.doc("rides/" + input.rideId);
+  await db.runTransaction(async tx => {
+    const ride = await tx.get(rideRef);
+    requirePresent(ride.exists && ride.get("riderId") === uid, "Ride not found.");
+    requirePresent(ride.get("status") === "matching", "Ride is no longer matching.");
+    const last = ride.get("lastDispatchAt") as Timestamp | undefined;
+    requirePresent(last && Date.now() - last.toMillis() > 60000,
+      "Give existing offers at least 60 seconds to expire.");
+    tx.update(rideRef, {status: "no_driver_found",
+      finishedAt: FieldValue.serverTimestamp()});
+    tx.delete(db.doc("riderActive/" + uid));
+  });
+  return {rideId: input.rideId, status: "no_driver_found"};
 });
