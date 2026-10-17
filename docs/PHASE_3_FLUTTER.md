@@ -258,7 +258,7 @@ CI workflow: .github/workflows/phase3-flutter.yml (stable Flutter, generate nati
 [x] Driver/owner application flows and trusted navigation.  
 [x] English/Bangla, dark/light and loading/error controls.  
 [x] Widget/unit test source and CI workflow.  
-[ ] Validate latest GitHub Actions run green.  
+[x] Flutter CI verified green on commit ddf464b8438e30c2965e36102ce72d58a2e70d21: Dart analyzer and all pure Dart/widget tests passed (GitHub Actions run 39071020224).  
 [ ] Complete private Firebase configuration and test OAuth/SMS on devices.  
 [ ] Signed APK/iOS release builds depend on platform signing and Phase 9 deployment work.
 
