@@ -1,0 +1,123 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+    function isActive() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+    function canReadRide(rideId) {
+      return signedIn() &&
+        (isAdmin() ||
+         (exists(/databases/$(database)/documents/rides/$(rideId)) &&
+          (get(/databases/$(database)/documents/rides/$(rideId)).data.riderId == request.auth.uid ||
+           get(/databases/$(database)/documents/rides/$(rideId)).data.driverId == request.auth.uid)));
+    }
+    match /users/{uid} {
+      allow get: if isSelf(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow create, delete: if false;
+      allow update: if isSelf(uid) && isActive() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+          ['displayName', 'locale', 'photoUrl', 'updatedAt']
+        ) &&
+        request.resource.data.displayName is string &&
+        request.resource.data.displayName.size() > 0 &&
+        request.resource.data.displayName.size() <= 80 &&
+        request.resource.data.locale in ['en', 'bn'] &&
+        request.resource.data.updatedAt == request.time &&
+        request.resource.data.keys().hasAll(['uid', 'accountStatus', 'createdAt']);
+    }
+    match /driverProfiles/{uid} {
+      allow get: if isSelf(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+    match /ownerProfiles/{uid} {
+      allow get: if isSelf(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+    match /driverApplications/{uid} {
+      allow get: if isSelf(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+    match /vehicles/{vehicleId} {
+      allow get, list: if isAdmin() ||
+        (signedIn() && resource.data.ownerId == request.auth.uid) ||
+        (resource.data.approvalStatus == 'approved' && resource.data.rentalEnabled == true);
+      allow write: if false;
+    }
+    match /rideQuotes/{quoteId} {
+      allow get: if isAdmin() || (signedIn() && resource.data.riderId == request.auth.uid);
+      allow list: if false;
+      allow write: if false;
+    }
+    match /rides/{rideId} {
+      allow get, list: if signedIn() && (
+        isAdmin() || resource.data.riderId == request.auth.uid ||
+        resource.data.driverId == request.auth.uid
+      );
+      allow write: if false;
+      match /messages/{messageId} {
+        allow get, list: if canReadRide(rideId);
+        allow write: if false;
+      }
+    }
+    match /driverOffers/{offerId} {
+      allow get, list: if isAdmin() ||
+        (signedIn() && request.auth.token.driver == true &&
+         resource.data.driverId == request.auth.uid);
+      allow write: if false;
+    }
+    match /rentalBookings/{bookingId} {
+      allow get, list: if isAdmin() ||
+        (signedIn() &&
+         (resource.data.renterId == request.auth.uid ||
+          resource.data.ownerId == request.auth.uid));
+      allow write: if false;
+    }
+    match /pricingConfigs/{version} {
+      allow get: if signedIn() && resource.data.active == true || isAdmin();
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+    match /ratings/{ratingId} {
+      allow get, list: if isAdmin() ||
+        (signedIn() && (resource.data.authorId == request.auth.uid ||
+         resource.data.targetId == request.auth.uid));
+      allow write: if false;
+    }
+    match /payments/{paymentId} {
+      allow get, list: if isAdmin() ||
+        (signedIn() && resource.data.payerId == request.auth.uid);
+      allow write: if false;
+    }
+    match /safetyIncidents/{incidentId} {
+      allow get: if isAdmin() || (signedIn() && resource.data.reporterId == request.auth.uid);
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+    match /notifications/{notificationId} {
+      allow get, list: if isAdmin() ||
+        (signedIn() && resource.data.uid == request.auth.uid);
+      allow write: if false;
+    }
+    match /appConfig/{configId} {
+      allow get: if configId == 'public';
+      allow list, write: if false;
+    }
+    // Everything not explicitly granted is server-only.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

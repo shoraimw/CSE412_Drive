@@ -1,0 +1,28 @@
+# Installed packages and build products
+node_modules/
+lib/
+dist/
+coverage/
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
+database-debug.log
+ui-debug.log
+*.log
+# Secrets and local Firebase configuration
+.env
+.env.*
+!.env.example
+*.local
+*.pem
+*.p12
+*-firebase-adminsdk-*.json
+serviceAccountKey.json
+google-services.json
+GoogleService-Info.plist
+firebase_options.dart
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
