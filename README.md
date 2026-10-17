@@ -28,6 +28,7 @@ The specification is based on the team's Fall 2026 Requirement Analysis and the 
 ## Repository documentation
 
 - [Phase 1: SRS and Architecture](docs/PHASE_1_SRS_ARCHITECTURE.md)
+- [Phase 2: Firebase backend, setup, callable API contracts, and emulator tests](docs/PHASE_2_FIREBASE.md)
 
 ## Important implementation boundary
 
@@ -36,3 +37,14 @@ This is an academic project, not an emergency-response or production payment ser
 ## Core domain rule
 
 The server is authoritative for driver approval, ride/rental state transitions, fare calculation, payment records, role privileges, and reservation conflict checks. Mobile clients may request actions, but must not directly write trusted business state.
+
+## Phase 2 local quickstart
+
+~~~bash
+npm install
+npm --prefix services/functions install
+npm test
+npm run emulators
+~~~
+
+Details, Windows PowerShell instructions, security boundaries, and the API reference are in the [Phase 2 guide](docs/PHASE_2_FIREBASE.md). A real Firebase project and deployment are not created automatically.
