@@ -3,12 +3,16 @@
   "version": "0.2.0",
   "private": true,
   "main": "lib/index.js",
-  "engines": {"node": "22"},
+  "engines": {
+    "node": "22"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "npm run build && node --test tests/*.test.cjs",
     "serve": "npm run build && firebase emulators:start --project demo-drive-local --only auth,firestore,database,functions",
-    "deploy": "npm run build && firebase deploy --only functions"
+    "deploy": "npm run build && firebase deploy --only functions",
+    "seed:demo": "node scripts/seed-config.cjs",
+    "grant:admin": "node scripts/grant-admin.cjs"
   },
   "dependencies": {
     "firebase-admin": "^13.0.0",

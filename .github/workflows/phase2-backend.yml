@@ -1,0 +1,36 @@
+name: Phase 2 Firebase backend checks
+on:
+  push:
+    paths:
+      - ".github/workflows/phase2-backend.yml"
+      - "firebase/**"
+      - "services/functions/**"
+      - "tests/**"
+      - "firebase.json"
+      - "package.json"
+  pull_request:
+    paths:
+      - "firebase/**"
+      - "services/functions/**"
+      - "tests/**"
+      - "firebase.json"
+      - "package.json"
+jobs:
+  firebase-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+      - name: Install workspace packages
+        run: npm install --no-audit --no-fund
+      - name: Install Cloud Functions packages
+        run: npm --prefix services/functions install --no-audit --no-fund
+      - name: Run unit, security rules, and Firebase emulator integration tests
+        run: npm test

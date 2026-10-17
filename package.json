@@ -2,12 +2,14 @@
   "name": "drive-firebase-workspace",
   "version": "0.2.0",
   "private": true,
-  "engines": {"node": ">=22"},
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "npm --prefix services/functions run build",
     "test:unit": "npm --prefix services/functions test",
-    "test:rules": "firebase emulators:exec --project demo-drive-local --only firestore,database,storage \"node --test tests/firebase/*.test.mjs\"",
-    "test:integration": "firebase emulators:exec --project demo-drive-local --only auth,firestore,database,functions \"node --test tests/integration/*.test.mjs\"",
+    "test:rules": "firebase emulators:exec --project demo-drive-local --only firestore,database,storage \"node --test --test-concurrency=1 tests/firebase/*.test.mjs\"",
+    "test:integration": "npm run build && firebase emulators:exec --project demo-drive-local --only auth,firestore,database,functions \"node --test tests/integration/*.test.mjs\"",
     "emulators": "firebase emulators:start --project demo-drive-local --only auth,firestore,database,storage,functions",
     "test": "npm run test:unit && npm run test:rules && npm run test:integration"
   },
