@@ -1,0 +1,35 @@
+name: Phase 3 Flutter checks
+
+on:
+  push:
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/phase3-flutter.yml"
+  pull_request:
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/phase3-flutter.yml"
+
+jobs:
+  flutter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate Android and iOS platform scaffolding (no credentials)
+        run: flutter create --project-name drive_mobile --platforms=android,ios .
+      - name: Download dependencies
+        run: flutter pub get
+      - name: Generate English/Bangla localization
+        run: flutter gen-l10n
+      - name: Dart analyzer
+        run: flutter analyze
+      - name: Pure Dart and widget tests
+        run: flutter test
