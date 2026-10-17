@@ -40,10 +40,10 @@ class DriveErrorView extends StatelessWidget {
 class DriveLoading extends StatelessWidget {
   const DriveLoading({super.key});
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) => Center(
     child: Semantics(
       label: 'Loading',
-      child: SizedBox.square(
+      child: const SizedBox.square(
         dimension: 32, child: CircularProgressIndicator.adaptive(),
       ),
     ),

@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,7 +35,7 @@ class _DriverApplicationScreenState extends ConsumerState<DriverApplicationScree
   Future<void> pick(String kind) async {
     final t = AppLocalizations.of(context);
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom, allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
         withData: true, allowMultiple: false,
       );
@@ -83,8 +82,8 @@ class _DriverApplicationScreenState extends ConsumerState<DriverApplicationScree
       final paths = <String>[];
       for (final kind in ['licence', 'vehicle', 'photo']) {
         final file = selectedFiles[kind]!;
-        final path = 'applications/$uid/$kind.' +
-            (file.extension?.toLowerCase() ?? 'pdf');
+        final extension = file.extension?.toLowerCase() ?? 'pdf';
+        final path = 'applications/$uid/$kind.$extension';
         await storage.ref(path).putData(
           Uint8List.fromList(file.bytes!),
           SettableMetadata(contentType: contentType(file)),

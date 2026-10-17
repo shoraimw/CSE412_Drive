@@ -43,7 +43,9 @@ class _PhoneAuthScreenState extends ConsumerState<PhoneAuthScreen> {
           });
         },
         onAutomaticVerification: () {
-          if (mounted) Navigator.of(context).pop();
+          if (mounted) {
+            Navigator.of(context).pop();
+          }
         },
         onFailure: (FirebaseAuthException e) {
           if (mounted) {

@@ -29,7 +29,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final locale = widget.profile['locale'] as String?;
     if (locale == 'bn' || locale == 'en') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) ref.read(appLocaleProvider.notifier).setLanguage(locale);
+        if (mounted) ref.read(appLocaleProvider.notifier).setLanguage(locale!);
       });
     }
   }
