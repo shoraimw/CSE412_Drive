@@ -37,10 +37,12 @@ class _PhoneAuthScreenState extends ConsumerState<PhoneAuthScreen> {
       await ref.read(authRepositoryProvider).sendPhoneOtp(
         phone: phone.text,
         onCodeSent: (id) {
-          if (mounted) setState(() {
-            verificationId = id;
-            busy = false;
-          });
+          if (mounted) {
+            setState(() {
+              verificationId = id;
+              busy = false;
+            });
+          }
         },
         onAutomaticVerification: () {
           if (mounted) {
