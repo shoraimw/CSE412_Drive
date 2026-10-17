@@ -26,7 +26,12 @@ class AuthRepository {
   }
 
   Future<void> googleSignIn() async {
-    _googleInitialized ??= GoogleSignIn.instance.initialize();
+    const googleClientId = String.fromEnvironment(
+      'GOOGLE_WEB_CLIENT_ID', defaultValue: '',
+    );
+    _googleInitialized ??= GoogleSignIn.instance.initialize(
+      serverClientId: googleClientId.isEmpty ? null : googleClientId,
+    );
     await _googleInitialized;
     final account = await GoogleSignIn.instance.authenticate();
     final tokens = account.authentication;

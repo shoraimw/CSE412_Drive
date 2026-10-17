@@ -24,21 +24,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int tab = 0;
 
   @override
+  void initState() {
+    super.initState();
+    final locale = widget.profile['locale'] as String?;
+    if (locale == 'bn' || locale == 'en') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(appLocaleProvider.notifier).setLanguage(locale);
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final driverData = ref.watch(driverProfileProvider(widget.user.uid)).asData?.value;
     final ownerData = ref.watch(ownerProfileProvider(widget.user.uid)).asData?.value;
     final driverApproved = driverData?['approvalStatus'] == 'approved';
     final ownerApproved = ownerData?['approvalStatus'] == 'approved';
-    final locale = widget.profile['locale'] as String?;
-    if ((locale == 'bn' || locale == 'en') &&
-        ref.watch(appLocaleProvider).languageCode != locale) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          ref.read(appLocaleProvider.notifier).setLanguage(locale);
-        }
-      });
-    }
     final views = <Widget>[
       const _RiderPanel(),
       if (driverApproved) _DriverPanel(
@@ -64,7 +66,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         icon: const Icon(Icons.person_outline),
         selectedIcon: const Icon(Icons.person), label: t.account),
     ];
-    final current = tab.clamp(0, views.length - 1);
+    final current = tab.clamp(0, views.length - 1).toInt();
     return Scaffold(
       appBar: AppBar(
         title: Text('DRIVE', style: Theme.of(context).textTheme.titleLarge),

@@ -43,7 +43,7 @@ class DriveFirebaseConfig {
 
   static Future<void> initialize() async {
     if (!emulator &&
-        [projectId, apiKey, appId, senderId].any((value) => value.isEmpty)) {
+        [projectId, apiKey, appId, senderId, storageBucket].any((value) => value.isEmpty)) {
       throw StateError(
         'Firebase config missing. See docs/PHASE_3_FLUTTER.md. '
         'Use DRIVE_EMULATOR=true locally, or pass Firebase settings '
