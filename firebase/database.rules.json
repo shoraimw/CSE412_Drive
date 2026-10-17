@@ -7,7 +7,7 @@
       "$driverId": {
         ".read": false,
         ".write": "auth != null && auth.uid === $driverId && auth.token.driver === true && (newData.exists() || data.exists())",
-        ".validate": "newData.hasChildren(['lat','lng','geohash','heading','accuracy','updatedAt']) && newData.childrenCount <= 7 && newData.child('lat').isNumber() && newData.child('lat').val() >= -90 && newData.child('lat').val() <= 90 && newData.child('lng').isNumber() && newData.child('lng').val() >= -180 && newData.child('lng').val() <= 180 && newData.child('geohash').isString() && newData.child('geohash').val().matches(/^[0123456789bcdefghjkmnpqrstuvwxyz]{5,12}$/) && newData.child('heading').isNumber() && newData.child('heading').val() >= 0 && newData.child('heading').val() <= 360 && newData.child('accuracy').isNumber() && newData.child('accuracy').val() >= 0 && newData.child('accuracy').val() <= 1000 && newData.child('updatedAt').isNumber() && newData.child('updatedAt').val() >= now - 60000 && newData.child('updatedAt').val() <= now + 10000",
+        ".validate": "newData.hasChildren(['lat','lng','geohash','heading','accuracy','updatedAt']) && newData.child('lat').isNumber() && newData.child('lat').val() >= -90 && newData.child('lat').val() <= 90 && newData.child('lng').isNumber() && newData.child('lng').val() >= -180 && newData.child('lng').val() <= 180 && newData.child('geohash').isString() && newData.child('geohash').val().matches(/^[0123456789bcdefghjkmnpqrstuvwxyz]{5,12}$/) && newData.child('heading').isNumber() && newData.child('heading').val() >= 0 && newData.child('heading').val() <= 360 && newData.child('accuracy').isNumber() && newData.child('accuracy').val() >= 0 && newData.child('accuracy').val() <= 1000 && newData.child('updatedAt').isNumber() && newData.child('updatedAt').val() >= now - 60000 && newData.child('updatedAt').val() <= now + 10000",
         "speed": {".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 120"}
       }
     },
@@ -15,7 +15,7 @@
       "$rideId": {
         ".read": "auth != null && root.child('tripAccess').child($rideId).child(auth.uid).val() === true",
         ".write": "auth != null && auth.token.driver === true && root.child('rideDriver').child($rideId).val() === auth.uid",
-        ".validate": "newData.hasChildren(['lat','lng','updatedAt']) && newData.childrenCount <= 4 && newData.child('lat').isNumber() && newData.child('lat').val() >= -90 && newData.child('lat').val() <= 90 && newData.child('lng').isNumber() && newData.child('lng').val() >= -180 && newData.child('lng').val() <= 180 && newData.child('updatedAt').isNumber() && newData.child('updatedAt').val() >= now - 60000 && newData.child('updatedAt').val() <= now + 10000",
+        ".validate": "newData.hasChildren(['lat','lng','updatedAt']) && newData.child('lat').isNumber() && newData.child('lat').val() >= -90 && newData.child('lat').val() <= 90 && newData.child('lng').isNumber() && newData.child('lng').val() >= -180 && newData.child('lng').val() <= 180 && newData.child('updatedAt').isNumber() && newData.child('updatedAt').val() >= now - 60000 && newData.child('updatedAt').val() <= now + 10000",
         "heading": {".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 360"}
       }
     },

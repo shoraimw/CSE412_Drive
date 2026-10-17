@@ -11,7 +11,19 @@ import {
   scoreDriver, validStateTransition, Point, FareRates, VehicleCategory
 } from "./domain";
 
-initializeApp();
+const initialConfig = JSON.parse(process.env.FIREBASE_CONFIG || "{}") as {
+  projectId?: string; databaseURL?: string; storageBucket?: string;
+};
+initializeApp({
+  ...initialConfig,
+  databaseURL: process.env.FIREBASE_DATABASE_URL || initialConfig.databaseURL ||
+    (process.env.FIREBASE_DATABASE_EMULATOR_HOST ?
+      "https://" + (process.env.GCLOUD_PROJECT || "demo-drive-local") +
+        "-default-rtdb.firebaseio.com" : undefined),
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || initialConfig.storageBucket ||
+    (process.env.FIREBASE_STORAGE_EMULATOR_HOST ?
+      (process.env.GCLOUD_PROJECT || "demo-drive-local") + ".appspot.com" : undefined)
+});
 const db = getFirestore();
 const rtdb = getDatabase();
 const auth = getAuth();
@@ -625,4 +637,58 @@ export const reportSafetyIncident = onCall(options, async request => {
   });
   return {incidentId: ref.id, recorded: true, notified: false,
     warning: "A record was created. Emergency dispatch/contact alerts are not configured in Phase 2."};
+});
+
+
+const fareRatesSchema = z.object({
+  baseMinor: z.number().int().min(0).max(10000000),
+  perKmMinor: z.number().int().min(0).max(1000000),
+  perMinuteMinor: z.number().int().min(0).max(1000000),
+  minMinor: z.number().int().min(0).max(10000000),
+  serviceFeeMinor: z.number().int().min(0).max(10000000),
+  surgeMultiplier: z.number().min(1).max(5),
+  surgeCap: z.number().min(1).max(5)
+}).strict().refine(value => value.surgeMultiplier <= value.surgeCap,
+  "Surge multiplier cannot exceed the cap.");
+
+export const publishPricingConfig = onCall(options, async request => {
+  const adminId = administrator(request);
+  const input = parse(z.object({
+    version: z.string().regex(/^[A-Za-z0-9_-]{4,48}$/),
+    vehicles: z.object({
+      bike: fareRatesSchema, car: fareRatesSchema, premium: fareRatesSchema
+    }).strict()
+  }).strict(), request.data);
+  const configRef = db.doc("appConfig/public");
+  const pricingRef = db.doc("pricingConfigs/" + input.version);
+  await db.runTransaction(async tx => {
+    const [config, proposed] = await Promise.all([
+      tx.get(configRef), tx.get(pricingRef)
+    ]);
+    requirePresent(!proposed.exists, "Pricing version already exists.");
+    const previousVersion = config.get("activePricingVersion") as string | undefined;
+    let previousRef: DocumentReference | null = null;
+    let previousExists = false;
+    if (previousVersion && previousVersion !== input.version) {
+      previousRef = db.doc("pricingConfigs/" + previousVersion);
+      previousExists = (await tx.get(previousRef)).exists;
+    }
+    tx.create(pricingRef, {
+      version: input.version, vehicles: input.vehicles, active: true,
+      currency: "BDT", createdBy: adminId,
+      createdAt: FieldValue.serverTimestamp()
+    });
+    tx.set(configRef, {
+      activePricingVersion: input.version,
+      supportedVehicleTypes: ["bike", "car", "premium"],
+      supportedLocales: ["en", "bn"],
+      updatedAt: FieldValue.serverTimestamp()
+    }, {merge: true});
+    if (previousRef && previousExists) tx.update(previousRef, {active: false});
+    tx.create(db.collection("auditEvents").doc(), {
+      type: "pricing_published", actorId: adminId, version: input.version,
+      createdAt: FieldValue.serverTimestamp()
+    });
+  });
+  return {version: input.version, published: true};
 });
