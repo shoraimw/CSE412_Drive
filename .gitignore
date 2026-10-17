@@ -26,3 +26,14 @@ firebase_options.dart
 .DS_Store
 .idea/
 .vscode/
+
+# Flutter generated artifacts and private per-project config
+apps/mobile/.dart_tool/
+apps/mobile/.flutter-plugins*
+apps/mobile/build/
+apps/mobile/.metadata
+apps/mobile/config/*.json
+apps/mobile/android/local.properties
+apps/mobile/android/key.properties
+apps/mobile/ios/Flutter/Generated.xcconfig
+apps/mobile/ios/Flutter/flutter_export_environment.sh
