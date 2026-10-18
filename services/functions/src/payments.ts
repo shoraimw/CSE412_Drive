@@ -1,7 +1,6 @@
-import {getFirestore, FieldValue} from "firebase-admin/firestore";
+import {getFirestore, FieldValue, Timestamp} from "firebase-admin/firestore";
 import {defineSecret} from "firebase-functions/params";
-import {onCall, HttpsError} from "firebase-functions/v2/https";
-import {onRequest} from "firebase-functions/v2/https";
+import {onCall, onRequest, HttpsError} from "firebase-functions/v2/https";
 import Stripe from "stripe";
 import {z} from "zod";
 
@@ -9,178 +8,230 @@ const stripeSecret = defineSecret("STRIPE_TEST_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_TEST_WEBHOOK_SECRET");
 const region = "asia-south1";
 const rideInput = z.object({rideId: z.string().min(8).max(128)}).strict();
+const db = () => getFirestore();
 
-function database() { return getFirestore(); }
-
-function rideAmount(doc: FirebaseFirestore.DocumentSnapshot): number {
-  if (!doc.exists || doc.get("status") !== "completed") {
-    throw new HttpsError("failed-precondition", "Complete the trip before payment.");
+function authenticated(request: {auth?: {uid: string}}): string {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in first.");
+  return uid;
+}
+function rideIdFrom(value: unknown): string {
+  const parsed = rideInput.safeParse(value);
+  if (!parsed.success) throw new HttpsError("invalid-argument", "Invalid ride ID.");
+  return parsed.data.rideId;
+}
+function trustedFare(ride: FirebaseFirestore.DocumentSnapshot): number {
+  if (!ride.exists || ride.get("status") !== "completed") {
+    throw new HttpsError("failed-precondition", "Complete the ride before paying.");
   }
-  const fare = doc.get("finalFare") as {totalMinor?: unknown} | undefined;
+  if (ride.get("currency") !== "BDT") {
+    throw new HttpsError("failed-precondition", "Only BDT is supported in this demo.");
+  }
+  const fare = ride.get("finalFare") as {totalMinor?: unknown} | undefined;
   const amount = fare?.totalMinor;
-  if (!Number.isSafeInteger(amount) || typeof amount !== "number" ||
+  if (typeof amount !== "number" || !Number.isSafeInteger(amount) ||
       amount < 5000 || amount > 100000000) {
-    throw new HttpsError("failed-precondition", "Ride fare is not valid for payment.");
-  }
-  if (doc.get("currency") !== "BDT") {
-    throw new HttpsError("failed-precondition", "This demo supports only BDT.");
+    throw new HttpsError("failed-precondition", "The final fare is invalid.");
   }
   return amount;
 }
-function inputRide(input: unknown): string {
-  const parsed = rideInput.safeParse(input);
-  if (!parsed.success) {
-    throw new HttpsError("invalid-argument", "A valid ride ID is required.");
-  }
-  return parsed.data.rideId;
-}
-function stripeClient(): Stripe {
+function stripe(): Stripe {
   const key = stripeSecret.value();
   if (!key || !key.startsWith("sk_test_")) {
     throw new HttpsError("failed-precondition",
-      "Stripe test secret is not configured. Live charges are disabled.");
+      "Stripe TEST is not configured; live charges are disabled.");
   }
   return new Stripe(key);
 }
+function redirectBase(): string {
+  const value = process.env.DRIVE_CHECKOUT_RETURN_BASE_URL || "";
+  let url: URL;
+  try { url = new URL(value); } catch {
+    throw new HttpsError("failed-precondition",
+      "Configure DRIVE_CHECKOUT_RETURN_BASE_URL with your own HTTPS website.");
+  }
+  if (url.protocol !== "https:" || !url.hostname ||
+      url.username || url.password || url.search || url.hash) {
+    throw new HttpsError("failed-precondition",
+      "Checkout return URL must be an HTTPS origin/path with no credentials or query.");
+  }
+  return url.toString().replace(/\/$/, "");
+}
 
+/** Rider selects pay-the-driver cash; a choice is not receipt evidence. */
 export const chooseCashForRide = onCall({region}, async request => {
-  const uid = request.auth?.uid;
-  if (!uid) throw new HttpsError("unauthenticated", "Sign in first.");
-  const rideId = inputRide(request.data);
-  const rideRef = database().doc("rides/" + rideId);
-  const paymentRef = database().doc("payments/" + rideId);
-  await database().runTransaction(async tx => {
-    const [ride, payment] = await Promise.all([
-      tx.get(rideRef), tx.get(paymentRef)
-    ]);
-    const amountMinor = rideAmount(ride);
+  const uid = authenticated(request);
+  const rideId = rideIdFrom(request.data);
+  const rideRef = db().doc("rides/" + rideId);
+  const paymentRef = db().doc("payments/" + rideId);
+  let result = "cash_due";
+  await db().runTransaction(async tx => {
+    const [ride, payment] = await Promise.all([tx.get(rideRef), tx.get(paymentRef)]);
+    const amountMinor = trustedFare(ride);
     if (ride.get("riderId") !== uid || !ride.get("driverId")) {
-      throw new HttpsError("permission-denied", "Only the rider selects payment.");
+      throw new HttpsError("permission-denied", "Only the rider can choose payment.");
     }
     if (payment.exists) {
-      if (payment.get("method") === "cash" &&
-          ["cash_due", "cash_reported_received"].includes(payment.get("status"))) return;
-      throw new HttpsError("failed-precondition", "Payment method is already locked.");
+      if (payment.get("method") !== "cash" ||
+          !["cash_due", "cash_reported_received"].includes(payment.get("status"))) {
+        throw new HttpsError("failed-precondition", "A different payment method is locked.");
+      }
+      result = payment.get("status") as string;
+      return;
     }
     tx.create(paymentRef, {
       rideId, payerId: uid, driverId: ride.get("driverId"),
       method: "cash", currency: "BDT", amountMinor,
-      status: "cash_due", createdAt: FieldValue.serverTimestamp(),
-      externalVerified: false
+      status: "cash_due", externalVerified: false,
+      createdAt: FieldValue.serverTimestamp()
     });
   });
-  return {rideId, method: "cash", status: "cash_due"};
+  return {rideId, method: "cash", status: result};
 });
 
-/** Driver attestation, NOT proof that cash changed hands. */
+/** Driver attestation, never independent confirmation of cash collection. */
 export const reportCashReceived = onCall({region}, async request => {
-  const uid = request.auth?.uid;
-  if (!uid) throw new HttpsError("unauthenticated", "Sign in first.");
-  const rideId = inputRide(request.data);
-  const paymentRef = database().doc("payments/" + rideId);
-  await database().runTransaction(async tx => {
-    const payment = await tx.get(paymentRef);
+  const uid = authenticated(request);
+  const rideId = rideIdFrom(request.data);
+  const ref = db().doc("payments/" + rideId);
+  await db().runTransaction(async tx => {
+    const payment = await tx.get(ref);
     if (!payment.exists || payment.get("driverId") !== uid ||
         payment.get("method") !== "cash") {
-      throw new HttpsError("permission-denied", "No matching cash trip is assigned.");
+      throw new HttpsError("permission-denied", "This is not your cash trip.");
     }
     if (payment.get("status") === "cash_reported_received") return;
     if (payment.get("status") !== "cash_due") {
-      throw new HttpsError("failed-precondition", "Cash report is not available.");
+      throw new HttpsError("failed-precondition", "Cash acknowledgement not allowed.");
     }
-    tx.update(paymentRef, {
-      status: "cash_reported_received",
-      cashReportedBy: uid, reportedAt: FieldValue.serverTimestamp(),
-      externalVerified: false
+    tx.update(ref, {
+      status: "cash_reported_received", cashReportedBy: uid,
+      reportedAt: FieldValue.serverTimestamp(), externalVerified: false
     });
   });
-  return {rideId, status: "cash_reported_received",
-    disclaimer: "Driver-reported, not externally verified or reconciled."};
+  return {rideId, status: "cash_reported_received", externalVerified: false};
 });
 
-/** Server-controlled Stripe PaymentIntent creation, test mode only.
- * With an unverified pending setup, retry with the same idempotency key.
- * Do not store or expose clientSecret in Firestore.
+/**
+ * Stripe-hosted TEST Checkout, so native card SDK/build dependencies are not
+ * required. The client never receives secret keys or writes payment status.
+ * Valid return URLs must be set on the server. Opening a Checkout link does
+ * not mean the charge succeeded; only a signed webhook can mark paid_test.
  */
-export const prepareStripeTestPayment = onCall(
-  {region, secrets: [stripeSecret], maxInstances: 10},
-  async request => {
-    const uid = request.auth?.uid;
-    if (!uid) throw new HttpsError("unauthenticated", "Sign in first.");
-    const rideId = inputRide(request.data);
-    const stripe = stripeClient();
-    const paymentRef = database().doc("payments/" + rideId);
-    const rideRef = database().doc("rides/" + rideId);
-    const result = await database().runTransaction(async tx => {
-      const [ride, old] = await Promise.all([tx.get(rideRef), tx.get(paymentRef)]);
-      const amountMinor = rideAmount(ride);
+export const prepareStripeTestCheckout = onCall(
+  {region, secrets: [stripeSecret], maxInstances: 10}, async request => {
+    const uid = authenticated(request);
+    const rideId = rideIdFrom(request.data);
+    const stripeClient = stripe();
+    const returnBase = redirectBase();
+    const paymentRef = db().doc("payments/" + rideId);
+    const rideRef = db().doc("rides/" + rideId);
+    const reserve = await db().runTransaction(async tx => {
+      const [ride, prior] = await Promise.all([tx.get(rideRef), tx.get(paymentRef)]);
+      const amountMinor = trustedFare(ride);
       if (ride.get("riderId") !== uid || !ride.get("driverId")) {
-        throw new HttpsError("permission-denied", "Only the rider can pay for this trip.");
+        throw new HttpsError("permission-denied", "Only the rider can pay.");
       }
-      if (old.exists) {
-        if (old.get("method") !== "stripe_test" ||
-            !["initializing", "requires_payment", "processing", "payment_failed"].includes(old.get("status"))) {
-          throw new HttpsError("failed-precondition",
-            "Another payment method or final payment state is recorded.");
-        }
-        if (old.get("payerId") !== uid || old.get("amountMinor") !== amountMinor) {
-          throw new HttpsError("failed-precondition", "Existing payment mismatch.");
-        }
-      } else {
+      if (!prior.exists) {
         tx.create(paymentRef, {
           rideId, payerId: uid, driverId: ride.get("driverId"),
           method: "stripe_test", currency: "BDT", amountMinor,
-          status: "initializing", stripeIntentId: null,
-          externalVerified: false, createdAt: FieldValue.serverTimestamp()
+          status: "initializing", stripeSessionId: null, attempt: 1,
+          externalVerified: false, createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp()
         });
+        return {amountMinor, attempt: 1, existing: null as string | null};
       }
-      return {amountMinor};
-    });
-
-    let intent: Stripe.PaymentIntent;
-    try {
-      intent = await stripe.paymentIntents.create({
-        amount: result.amountMinor,
-        currency: "bdt",
-        automatic_payment_methods: {enabled: true},
-        metadata: {rideId, payerId: uid},
-        description: "DRIVE university ride demo " + rideId
-      }, {idempotencyKey: "drive_test_ride_" + rideId});
-    } catch (error) {
-      throw new HttpsError("unavailable",
-        "Stripe test payment could not be initialized. Retry later.");
-    }
-    if (!intent.client_secret) {
-      throw new HttpsError("internal", "No Stripe PaymentIntent client secret returned.");
-    }
-    await database().runTransaction(async tx => {
-      const current = await tx.get(paymentRef);
-      if (current.get("method") !== "stripe_test" ||
-          current.get("payerId") !== uid) {
-        throw new HttpsError("failed-precondition", "Payment state has changed.");
+      if (prior.get("method") !== "stripe_test" ||
+          prior.get("payerId") !== uid || prior.get("amountMinor") !== amountMinor) {
+        throw new HttpsError("failed-precondition", "Payment method or amount is locked.");
       }
-      const oldId = current.get("stripeIntentId") as string | null;
-      if (oldId && oldId !== intent.id) {
-        throw new HttpsError("failed-precondition", "Stripe intent changed unexpectedly.");
+      const state = prior.get("status") as string;
+      if (state === "paid_test") {
+        throw new HttpsError("already-exists", "This ride already has a verified test payment.");
       }
-      if (!["initializing", "requires_payment", "processing", "payment_failed"].includes(current.get("status"))) {
-        throw new HttpsError("failed-precondition", "Payment already finalized.");
+      if (!["initializing", "checkout_open", "payment_failed"].includes(state)) {
+        throw new HttpsError("failed-precondition", "Unsupported payment state.");
       }
+      const expiry = prior.get("checkoutExpiresAt") as Timestamp | undefined;
+      const currentSession = prior.get("stripeSessionId") as string | null;
+      if (currentSession && expiry && expiry.toMillis() > Date.now() + 10000) {
+        return {amountMinor, attempt: Number(prior.get("attempt") || 1), existing: currentSession};
+      }
+      const updatedAt = prior.get("updatedAt") as Timestamp | undefined;
+      if (state === "initializing" && !currentSession &&
+          updatedAt && Date.now() - updatedAt.toMillis() < 12000) {
+        throw new HttpsError("resource-exhausted", "Checkout is starting; retry shortly.");
+      }
+      const attempt = Math.min(100, Number(prior.get("attempt") || 1) + 1);
+      if (attempt >= 100) throw new HttpsError("resource-exhausted", "Too many checkout attempts.");
       tx.update(paymentRef, {
-        stripeIntentId: intent.id,
-        status: intent.status === "processing" ? "processing" : "requires_payment",
+        status: "initializing", stripeSessionId: null, attempt,
         updatedAt: FieldValue.serverTimestamp()
       });
+      return {amountMinor, attempt, existing: null as string | null};
     });
+
+    let session: Stripe.Checkout.Session;
+    if (reserve.existing) {
+      try {
+        session = await stripeClient.checkout.sessions.retrieve(reserve.existing);
+      } catch (_) {
+        throw new HttpsError("unavailable", "Stripe checkout could not be retrieved.");
+      }
+    } else {
+      try {
+        session = await stripeClient.checkout.sessions.create({
+          mode: "payment",
+          payment_method_types: ["card"],
+          client_reference_id: rideId,
+          line_items: [{
+            quantity: 1,
+            price_data: {
+              currency: "bdt",
+              unit_amount: reserve.amountMinor,
+              product_data: {name: "DRIVE ride (TEST MODE)"}
+            }
+          }],
+          metadata: {rideId, payerId: uid},
+          payment_intent_data: {metadata: {rideId, payerId: uid}},
+          success_url: returnBase + "/payment/success?session_id={CHECKOUT_SESSION_ID}",
+          cancel_url: returnBase + "/payment/cancel",
+          expires_at: Math.floor(Date.now() / 1000) + 1800
+        }, {idempotencyKey: "drive_stripe_checkout_" + rideId + "_" + reserve.attempt});
+      } catch (_) {
+        throw new HttpsError("unavailable", "Stripe TEST Checkout could not be started.");
+      }
+      await db().runTransaction(async tx => {
+        const current = await tx.get(paymentRef);
+        if (current.get("method") !== "stripe_test" ||
+            current.get("payerId") !== uid ||
+            Number(current.get("attempt")) !== reserve.attempt) {
+          throw new HttpsError("failed-precondition", "Checkout state changed.");
+        }
+        if (current.get("status") === "paid_test") return;
+        tx.update(paymentRef, {
+          stripeSessionId: session.id, status: "checkout_open",
+          checkoutExpiresAt: Timestamp.fromMillis(session.expires_at * 1000),
+          updatedAt: FieldValue.serverTimestamp()
+        });
+      });
+    }
+    if (!session.url || session.status !== "open") {
+      throw new HttpsError("failed-precondition",
+        "Checkout is no longer open. Refresh the payment status.");
+    }
     return {
-      rideId, method: "stripe_test",
-      clientSecret: intent.client_secret,
-      paymentIntentId: intent.id,
-      currency: "BDT", amountMinor: result.amountMinor
+      rideId, method: "stripe_test", checkoutUrl: session.url,
+      expiresAtMs: session.expires_at * 1000,
+      currency: "BDT", amountMinor: reserve.amountMinor
     };
   }
 );
 
+/** Verify Stripe raw-body signature and correlate all server-trusted fields.
+ * Replays/out-of-order events cannot undo paid_test.
+ */
 export const stripeTestWebhook = onRequest(
   {region, secrets: [stripeSecret, stripeWebhookSecret],
     maxInstances: 10, cors: false},
@@ -189,58 +240,61 @@ export const stripeTestWebhook = onRequest(
       response.status(405).send("Method not allowed");
       return;
     }
-    const secret = stripeWebhookSecret.value();
-    if (!secret || !secret.startsWith("whsec_") ||
-        typeof request.headers["stripe-signature"] !== "string") {
-      response.status(400).send("Invalid webhook setup or signature");
+    const signingSecret = stripeWebhookSecret.value();
+    const signature = request.headers["stripe-signature"];
+    if (!signingSecret?.startsWith("whsec_") || typeof signature !== "string") {
+      response.status(400).send("Missing Stripe webhook signature.");
       return;
     }
     let event: Stripe.Event;
     try {
-      event = stripeClient().webhooks.constructEvent(
-        request.rawBody, request.headers["stripe-signature"], secret);
+      event = stripe().webhooks.constructEvent(request.rawBody, signature, signingSecret);
     } catch (_) {
-      response.status(400).send("Signature verification failed");
+      response.status(400).send("Invalid Stripe webhook signature.");
       return;
     }
-    if (event.type !== "payment_intent.succeeded" &&
-        event.type !== "payment_intent.payment_failed") {
+    if (!["checkout.session.completed", "checkout.session.async_payment_succeeded",
+          "checkout.session.async_payment_failed"].includes(event.type)) {
       response.status(200).json({received: true, ignored: true});
       return;
     }
-    const intent = event.data.object as Stripe.PaymentIntent;
-    const rideId = intent.metadata.rideId;
+    const session = event.data.object as Stripe.Checkout.Session;
+    const rideId = session.metadata?.rideId;
+    const payerId = session.metadata?.payerId;
     if (!rideId || !/^[a-zA-Z0-9_-]{8,128}$/.test(rideId)) {
       response.status(200).json({received: true, ignored: true});
       return;
     }
-    const next = event.type === "payment_intent.succeeded" ? "paid_test" : "payment_failed";
-    const paymentRef = database().doc("payments/" + rideId);
-    const eventRef = database().doc("stripeWebhookEvents/" + event.id);
+    const paid = session.payment_status === "paid";
+    // checkout.session.completed can precede payment finalization for
+    // asynchronous methods. Only paid means a verified TEST success.
+    if (!paid && event.type !== "checkout.session.async_payment_failed") {
+      response.status(200).json({received: true, ignored: true});
+      return;
+    }
+    const next = paid ? "paid_test" : "payment_failed";
+    const ref = db().doc("payments/" + rideId);
+    const eventRef = db().doc("stripeWebhookEvents/" + event.id);
     try {
-      await database().runTransaction(async tx => {
-        const [payment, processed] = await Promise.all([
-          tx.get(paymentRef), tx.get(eventRef)
-        ]);
+      await db().runTransaction(async tx => {
+        const [payment, processed] = await Promise.all([tx.get(ref), tx.get(eventRef)]);
         if (processed.exists) return;
         if (!payment.exists || payment.get("method") !== "stripe_test" ||
-            payment.get("stripeIntentId") !== intent.id ||
-            payment.get("amountMinor") !== intent.amount ||
-            payment.get("payerId") !== intent.metadata.payerId ||
-            intent.currency !== "bdt") {
-          throw new Error("Stripe event cannot be linked to the trusted ride payment.");
+            payment.get("stripeSessionId") !== session.id ||
+            payment.get("payerId") !== payerId ||
+            payment.get("amountMinor") !== session.amount_total ||
+            session.currency !== "bdt" || session.client_reference_id !== rideId) {
+          throw new Error("Signed event mismatches the payment reservation.");
         }
-        const status = payment.get("status") as string;
-        if (status === "paid_test" && next !== "paid_test") {
+        if (payment.get("status") === "paid_test" && next !== "paid_test") {
           tx.create(eventRef, {
             type: event.type, rideId, ignoredAsOutOfOrder: true,
             createdAt: FieldValue.serverTimestamp()
           });
           return;
         }
-        tx.update(paymentRef, {
-          status: next,
-          externalVerified: next === "paid_test",
+        tx.update(ref, {
+          status: next, externalVerified: next === "paid_test",
           stripeEventId: event.id,
           verifiedAt: next === "paid_test" ? FieldValue.serverTimestamp() : null,
           updatedAt: FieldValue.serverTimestamp()
@@ -251,9 +305,7 @@ export const stripeTestWebhook = onRequest(
       });
       response.status(200).json({received: true});
     } catch (_) {
-      // Non-2xx tells Stripe to retry when a payment record has not yet
-      // committed or a transient Firestore error prevented processing.
-      response.status(503).send("Webhook processing temporarily unavailable");
+      response.status(503).send("Retry webhook after payment reservation is ready.");
     }
   }
 );

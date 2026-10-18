@@ -100,12 +100,12 @@ export const rateCompletedRide = onCall(callOptions, async request => {
 export const registerPushToken = onCall(callOptions, async request => {
   const uid = userId(request.auth);
   const input = validate(z.object({
-    token: z.string().trim().min(12).max(256),
+    installationId: z.string().trim().min(12).max(256),
     platform: z.enum(["android", "ios"])
   }).strict(), request.data);
-  const fingerprint = createHash("sha256").update(input.token).digest("hex");
-  await db().doc("pushTokens/" + uid + "/tokens/" + fingerprint).set({
-    token: input.token, platform: input.platform,
+  const fingerprint = createHash("sha256").update(input.installationId).digest("hex");
+  await db().doc("pushInstallations/" + uid + "/instances/" + fingerprint).set({
+    fid: input.installationId, platform: input.platform,
     updatedAt: FieldValue.serverTimestamp()
   }, {merge: true});
   return {registered: true};
@@ -114,10 +114,10 @@ export const registerPushToken = onCall(callOptions, async request => {
 export const unregisterPushToken = onCall(callOptions, async request => {
   const uid = userId(request.auth);
   const input = validate(z.object({
-    token: z.string().trim().min(12).max(256)
+    installationId: z.string().trim().min(12).max(256)
   }).strict(), request.data);
-  const fingerprint = createHash("sha256").update(input.token).digest("hex");
-  await db().doc("pushTokens/" + uid + "/tokens/" + fingerprint).delete();
+  const fingerprint = createHash("sha256").update(input.installationId).digest("hex");
+  await db().doc("pushInstallations/" + uid + "/instances/" + fingerprint).delete();
   return {unregistered: true};
 });
 
@@ -169,7 +169,7 @@ export const onRideMessageCreated = onDocumentCreated(
     // Never put private message text into push notification payloads.
     await enqueue(message.recipientId as string, "ride_chat", "DRIVE: Trip message",
       "You have a new message in your trip chat.",
-      event.params.rideId, "chat_" + event.params.messageId);
+      event.params.rideId, "chat_" + event.params.rideId + "_" + event.params.messageId);
   }
 );
 
@@ -186,16 +186,16 @@ export const deliverPushNotification = onDocumentCreated(
       await doc.ref.update({pushStatus: "emulator_not_sent"});
       return;
     }
-    const tokens = await db().collection("pushTokens").doc(data.uid)
-      .collection("tokens").limit(100).get();
+    const tokens = await db().collection("pushInstallations").doc(data.uid)
+      .collection("instances").limit(100).get();
     if (tokens.empty) {
       await doc.ref.update({pushStatus: "no_registered_device"});
       return;
     }
     try {
-      const list = tokens.docs.map(x => x.get("token") as string).filter(Boolean);
+      const list = tokens.docs.map(x => x.get("fid") as string).filter(Boolean);
       const response = await getMessaging().sendEachForMulticast({
-        tokens: list, notification: {
+        fids: list, notification: {
           title: String(data.title || "DRIVE"),
           body: String(data.body || "Open DRIVE for updates.")
         }, data: {

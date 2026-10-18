@@ -119,23 +119,21 @@ class _CheckoutState extends ConsumerState<TripCheckoutScreen> {
                           'Cash selected; pay the driver directly.'),
                           child: const Text('Choose cash')),
                         OutlinedButton(
-                          onPressed: busy || !TripServicesRepository.isStripeConfigured
-                            ? null : () => action(
-                              () => services.presentStripeTestPayment(widget.rideId),
-                              'PaymentSheet returned; wait for webhook confirmation.'),
-                          child: const Text('Pay with Stripe TEST'),
+                          onPressed: busy ? null : () => action(
+                              () => services.openStripeTestCheckout(widget.rideId),
+                              'Stripe TEST checkout opened. Return here to check the signed webhook result.'),
+                          child: const Text('Open Stripe TEST checkout'),
                         ),
-                        if (!TripServicesRepository.isStripeConfigured)
-                          const Text('Stripe test key not configured on this device.'),
+                        if (false)
+                          const Text('Stripe TEST checkout requires server setup; no client key needed.'),
                       ],
                       if (rider && payment?['method'] == 'stripe_test' &&
                           ['initializing', 'requires_payment', 'processing',
                             'payment_failed'].contains(status))
                         OutlinedButton(
-                          onPressed: busy || !TripServicesRepository.isStripeConfigured
-                              ? null : () => action(
-                                () => services.presentStripeTestPayment(widget.rideId),
-                                'Wait for the signed Stripe webhook status.'),
+                          onPressed: busy ? null : () => action(
+                                () => services.openStripeTestCheckout(widget.rideId),
+                                'Stripe TEST checkout opened. Payment status updates after webhook.'),
                           child: const Text('Continue Stripe TEST payment'),
                         ),
                       if (driver && status == 'cash_due')

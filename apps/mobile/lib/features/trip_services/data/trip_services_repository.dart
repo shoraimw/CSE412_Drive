@@ -5,8 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/config/firebase_bootstrap.dart';
@@ -69,34 +68,22 @@ class TripServicesRepository {
   Future<void> reportCashReceived(String rideId) async =>
       _call('reportCashReceived', {'rideId': rideId});
 
-  static bool get isStripeConfigured {
-    const key = String.fromEnvironment(
-      'STRIPE_TEST_PUBLISHABLE_KEY', defaultValue: '',
-    );
-    return key.startsWith('pk_test_');
-  }
-
-  /// PaymentSheet does not set Firestore to paid. Only the signed Stripe
-  /// webhook can produce paid_test; the caller must watch the payment doc.
-  Future<void> presentStripeTestPayment(String rideId) async {
-    if (!isStripeConfigured) {
-      throw StateError('Stripe test publishable key is not configured.');
+  /// Server creates a Stripe TEST Checkout session from the trusted ride fare.
+  /// Opening the hosted page is not a payment confirmation: watch the
+  /// payment document for the signed webhook's paid_test status.
+  Future<void> openStripeTestCheckout(String rideId) async {
+    final response = await _call('prepareStripeTestCheckout', {'rideId': rideId});
+    final raw = response['checkoutUrl'] as String?;
+    final url = raw == null ? null : Uri.tryParse(raw);
+    if (url == null || url.scheme != 'https' || url.host.isEmpty ||
+        !(url.host == 'checkout.stripe.com' ||
+          url.host.endsWith('.checkout.stripe.com'))) {
+      throw StateError('Stripe did not return a trusted checkout link.');
     }
-    final response = await _call('prepareStripeTestPayment', {'rideId': rideId});
-    final secret = response['clientSecret'] as String?;
-    if (secret == null || secret.isEmpty) {
-      throw StateError('PaymentIntent client secret not returned.');
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      throw StateError('Unable to open the secure Stripe test checkout.');
     }
-    await Stripe.instance.initPaymentSheet(
-      paymentSheetParameters: SetupPaymentSheetParameters(
-        paymentIntentClientSecret: secret,
-        merchantDisplayName: 'DRIVE University Demo',
-        style: ThemeMode.system,
-      ),
-    );
-    await Stripe.instance.presentPaymentSheet();
   }
-
 
   /// Firebase Messaging 17 supplies a Firebase Installation ID (FID),
   /// not the deprecated legacy registration token.
@@ -120,9 +107,9 @@ class TripServicesRepository {
     }
   }
 
-  Future<void> _registerToken(String installationId) async {
+  Future<void> _registerInstallation(String installationId) async {
     await _call('registerPushToken', {
-      'token': installationId,
+      'installationId': installationId,
       'platform': Platform.isIOS ? 'ios' : 'android',
     });
   }
@@ -131,7 +118,7 @@ class TripServicesRepository {
     if (DriveFirebaseConfig.emulator || kIsWeb) return;
     final id = _registeredInstallationId;
     if (id != null) {
-      await _call('unregisterPushToken', {'token': id});
+      await _call('unregisterPushToken', {'installationId': id});
     }
     await FirebaseMessaging.instance.unregister();
     _registeredInstallationId = null;

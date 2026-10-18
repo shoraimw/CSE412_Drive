@@ -1,6 +1,7 @@
 import 'dart:io';
 
 /// Requires Flutter-generated Android source. Never writes API keys.
+/// Phase 6 uses hosted Stripe TEST Checkout instead of a native card SDK.
 void main() {
   final root = Directory('android/app/src/main/kotlin');
   final candidates = root.existsSync()
@@ -41,10 +42,6 @@ void main() {
 // DRIVE_FILE_PICKER_AGP9_FIX
 subprojects {
     configurations.configureEach {
-        // Stripe's optional issuing push-provisioning SDK pulls Google's private
-        // TapAndPay Maven artifact. DRIVE uses PaymentSheet, not issuing provisioning.
-        exclude group: "com.stripe", module: "stripe-android-issuing-push-provisioning"
-    }
     if (name == "file_picker") {
         apply plugin: "org.jetbrains.kotlin.android"
         tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
@@ -59,10 +56,6 @@ subprojects {
 // DRIVE_FILE_PICKER_AGP9_FIX
 subprojects {
     configurations.configureEach {
-        // Stripe issuing push provisioning requires a private Google TapAndPay SDK.
-        // This project uses PaymentSheet, not card issuing/provisioning.
-        exclude(group = "com.stripe", module = "stripe-android-issuing-push-provisioning")
-    }
     if (name == "file_picker") {
         pluginManager.apply("org.jetbrains.kotlin.android")
         tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
@@ -104,18 +97,6 @@ subprojects {
   }
   manifest.writeAsStringSync(xml);
 
-  const rules = '''
--dontwarn com.stripe.android.pushProvisioning.**
--dontwarn com.google.android.gms.tapandpay.**
--dontwarn kotlinx.parcelize.Parceler
--dontwarn kotlinx.parcelize.Parcelize
--keep class com.stripe.** { *; }
-''';
-  final proguard = File('android/app/proguard-rules.pro');
-  final existing = proguard.existsSync() ? proguard.readAsStringSync() : '';
-  if (!existing.contains('-keep class com.stripe.**')) {
-    proguard.writeAsStringSync('$existing\n$rules');
-  }
-  stdout.writeln('Stripe Android host, file_picker Kotlin target, app label and notification permission configured.');
+  stdout.writeln('DRIVE Android host, file_picker Kotlin target, app label and notification permission configured.');
   stdout.writeln('Enable APNs/Push capability in Xcode for real iOS notifications.');
 }
