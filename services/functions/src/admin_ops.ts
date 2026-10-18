@@ -2,6 +2,7 @@ import {getFirestore, FieldValue, Timestamp} from "firebase-admin/firestore";
 import {getAuth} from "firebase-admin/auth";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {z} from "zod";
+import {canTransitionCase, disputeDocumentId} from "./admin_policy";
 
 const inputSchema = z.object({
   incidentId: z.string().min(8).max(128),
@@ -72,7 +73,7 @@ export const openServiceDispute = onCall({
   const recordRef = db.doc(
     (input.serviceType === "ride" ? "rides/" : "rentalBookings/") + input.serviceId
   );
-  const caseId = input.serviceType + "_" + input.serviceId + "_" + uid;
+  const caseId = disputeDocumentId(input.serviceType, input.serviceId, uid);
   const disputeRef = db.doc("serviceDisputes/" + caseId);
   let status = "open";
   await db.runTransaction(async tx => {
@@ -139,8 +140,7 @@ export const reviewServiceDispute = onCall({
   const parsed = reviewDisputeInput.safeParse(request.data);
   if (!parsed.success) throw new HttpsError("invalid-argument", "Invalid case review.");
   const data = parsed.data;
-  if (data.expectedStatus === "open" ? data.nextStatus !== "in_review"
-    : !["resolved", "dismissed"].includes(data.nextStatus)) {
+  if (!canTransitionCase(data.expectedStatus, data.nextStatus)) {
     throw new HttpsError("invalid-argument", "Invalid dispute transition.");
   }
   const db = getFirestore();
