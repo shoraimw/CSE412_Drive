@@ -110,3 +110,18 @@ test("Trip payment is visible to payer and driver, never mutable by clients", as
   await assertFails(setDoc(doc(alice, "notifications/hacked"),
     {uid: "alice", title: "Forged notification"}));
 });
+
+test("Phase 8 audit history is admin-readable and client-write-protected", async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), "auditEvents/event1"), {
+      actorId: "admin1", type: "incident_review", subjectId: "safety1"
+    });
+  });
+  const administrator = env.authenticatedContext("admin1", {admin: true}).firestore();
+  const rider = env.authenticatedContext("alice").firestore();
+  await assertSucceeds(getDoc(doc(administrator, "auditEvents/event1")));
+  await assertSucceeds(getDocs(collection(administrator, "auditEvents")));
+  await assertFails(getDoc(doc(rider, "auditEvents/event1")));
+  await assertFails(getDocs(collection(rider, "auditEvents")));
+  await assertFails(setDoc(doc(administrator, "auditEvents/forged"), {type:"fake"}));
+});

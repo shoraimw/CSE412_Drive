@@ -130,6 +130,37 @@ test("Full Phase 2 backend scenario: auth, quote, match, rental locks and SOS", 
     rideId: booking.rideId, type: "sos", note: "Automated test incident"
   });
   assert.equal(incident.notified, false);
+  // Phase 8: only a verified administrator may review an incident.
+  await denied("reviewSafetyIncident", rider.token, {
+    incidentId: incident.incidentId,
+    expectedStatus: "open",
+    nextStatus: "in_review",
+    note: "Rider account must not administer cases."
+  });
+  const triage = await call("reviewSafetyIncident", adminSession.token, {
+    incidentId: incident.incidentId,
+    expectedStatus: "open",
+    nextStatus: "in_review",
+    note: "Reviewed case documentation for simulated test incident."
+  });
+  assert.equal(triage.status, "in_review");
+  assert.equal(triage.notified, false);
+  await denied("reviewSafetyIncident", adminSession.token, {
+    incidentId: incident.incidentId,
+    expectedStatus: "open",
+    nextStatus: "resolved",
+    note: "Cannot skip the review status or use stale status."
+  });
+  const resolved = await call("reviewSafetyIncident", adminSession.token, {
+    incidentId: incident.incidentId,
+    expectedStatus: "in_review",
+    nextStatus: "resolved",
+    note: "Completed simulated incident review with case notes."
+  });
+  assert.equal(resolved.status, "resolved");
+  const updatedIncident = await getFirestore().doc("safetyIncidents/" + incident.incidentId).get();
+  assert.equal(updatedIncident.get("status"), "resolved");
+
   // Phase 6 chat is limited to active assigned trip participants.
   const messageId = "08d7ee1a-cf85-4be7-a72c-5412ff6aef9c";
   const message = {rideId: booking.rideId,
