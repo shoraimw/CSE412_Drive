@@ -1,4 +1,4 @@
-name: Phase 7 Admin dashboard checks
+name: Phase 8 Admin dashboard checks
 on:
   push:
     paths:
@@ -9,9 +9,9 @@ on:
       - "apps/admin/**"
       - ".github/workflows/phase7-admin.yml"
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: apps/admin
@@ -23,4 +23,5 @@ jobs:
           cache: npm
           cache-dependency-path: apps/admin/package.json
       - run: npm install --no-audit --no-fund
+      - run: npm test
       - run: npm run build
