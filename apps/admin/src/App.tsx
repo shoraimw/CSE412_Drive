@@ -156,8 +156,8 @@ function ReviewDialog({review,busy,onClose,onSubmit}:{
 type Triage={
   row:AdminRow;
 };
-function TriageDialog({item,busy,onClose,onSubmit}:{
-  item:Triage;busy:boolean;onClose:()=>void;
+function TriageDialog({item,busy,error,onClose,onSubmit}:{
+  item:Triage;busy:boolean;error:string;onClose:()=>void;
   onSubmit:(priority:"low"|"normal"|"high",
     assignment:"take"|"release"|"unchanged",reason:string)=>void;
 }) {
@@ -198,6 +198,7 @@ function TriageDialog({item,busy,onClose,onSubmit}:{
       <textarea id="triage-reason" rows={4} maxLength={400}
         autoFocus value={reason} onChange={e=>setReason(e.target.value)}
         placeholder="Explain priority and ownership changes for the audit log."/>
+      {error&&<p className="alert error" role="alert">{error}</p>}
       <div className="dialog-actions">
         <button className="quiet" disabled={busy} onClick={onClose}>Cancel</button>
         <button className="primary" disabled={busy||!valid}
@@ -660,7 +661,7 @@ export default function App() {
         queueTab(tab)?<Queue tab={tab} rows={rows} onReview={setReview}/>:
         activityTab(tab)?<>
           <Operations key={tab} tab={tab} rows={rows}
-            onReview={setReview} onTriage={setTriage}/>
+            onReview={setReview} onTriage={value=>{setError("");setTriage(value);}}/>
           {activityCursor&&<div className="pagination">
             <span className="muted small">Showing {rows.length} records, newest first</span>
             <button className="secondary" disabled={loadingMore}
@@ -674,7 +675,7 @@ export default function App() {
         account-role, incident or trip-state writes. Access and changes are authorized server-side.</footer>
     </main>
     {triage&&<TriageDialog key={triage.row.id}
-      item={triage} busy={busy}
+      item={triage} busy={busy} error={error}
       onClose={()=>{if(!busy)setTriage(null);}}
       onSubmit={(priority,assignment,reason)=>
         void saveTriage(priority,assignment,reason)}/>}
