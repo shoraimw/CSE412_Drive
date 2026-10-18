@@ -119,7 +119,7 @@ export const prepareStripeTestPayment = onCall(
       }
       if (old.exists) {
         if (old.get("method") !== "stripe_test" ||
-            !["initializing", "requires_payment", "processing"].includes(old.get("status"))) {
+            !["initializing", "requires_payment", "processing", "payment_failed"].includes(old.get("status"))) {
           throw new HttpsError("failed-precondition",
             "Another payment method or final payment state is recorded.");
         }
@@ -163,7 +163,7 @@ export const prepareStripeTestPayment = onCall(
       if (oldId && oldId !== intent.id) {
         throw new HttpsError("failed-precondition", "Stripe intent changed unexpectedly.");
       }
-      if (!["initializing", "requires_payment", "processing"].includes(current.get("status"))) {
+      if (!["initializing", "requires_payment", "processing", "payment_failed"].includes(current.get("status"))) {
         throw new HttpsError("failed-precondition", "Payment already finalized.");
       }
       tx.update(paymentRef, {

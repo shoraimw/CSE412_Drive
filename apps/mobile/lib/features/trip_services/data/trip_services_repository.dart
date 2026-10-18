@@ -19,6 +19,7 @@ class TripServicesRepository {
 
   final FirebaseFirestore firestore;
   final FirebaseFunctions functions;
+  String? _registeredInstallationId;
 
   Future<Map<String, dynamic>> _call(
       String name, Map<String, dynamic> data) async {
@@ -35,7 +36,7 @@ class TripServicesRepository {
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> myRating(
       String rideId, String uid) =>
-      firestore.collection('ratings').doc(rideId + '_' + uid).snapshots();
+      firestore.collection('ratings').doc('${rideId}_$uid').snapshots();
 
   Stream<QuerySnapshot<Map<String, dynamic>>> notifications(String uid) =>
       firestore.collection('notifications').where('uid', isEqualTo: uid)
@@ -96,42 +97,44 @@ class TripServicesRepository {
     await Stripe.instance.presentPaymentSheet();
   }
 
-  Future<void> registerDeviceForPush() async {
-    if (DriveFirebaseConfig.emulator || kIsWeb) return;
-    if (!Platform.isAndroid && !Platform.isIOS) return;
-    await FirebaseMessaging.instance.requestPermission(
-      alert: true, badge: true, sound: true,
-    );
-    final token = await FirebaseMessaging.instance.getToken();
-    if (token == null) return;
-    await _registerToken(token);
-  }
 
-  Future<void> _registerToken(String token) async {
-    await _call('registerPushToken', {
-      'token': token,
-      'platform': Platform.isIOS ? 'ios' : 'android',
-    });
-  }
-
-  StreamSubscription<String>? watchPushTokenRefresh() {
+  /// Firebase Messaging 17 supplies a Firebase Installation ID (FID),
+  /// not the deprecated legacy registration token.
+  Future<StreamSubscription<String>?> startPushRegistration() async {
     if (DriveFirebaseConfig.emulator || kIsWeb) return null;
-    return FirebaseMessaging.instance.onTokenRefresh.listen((token) {
-      unawaited(_registerToken(token).catchError((Object error) {
-        debugPrint('Push token refresh registration failed.');
+    if (!Platform.isAndroid && !Platform.isIOS) return null;
+    final messaging = FirebaseMessaging.instance;
+    final listener = messaging.onRegistered.listen((installationId) {
+      _registeredInstallationId = installationId;
+      unawaited(_registerToken(installationId).catchError((Object _) {
+        debugPrint('Unable to register this device for push.');
       }));
+    });
+    try {
+      await messaging.requestPermission(alert: true, badge: true, sound: true);
+      await messaging.register();
+      return listener;
+    } catch (_) {
+      await listener.cancel();
+      rethrow;
+    }
+  }
+
+  Future<void> _registerToken(String installationId) async {
+    await _call('registerPushToken', {
+      'token': installationId,
+      'platform': Platform.isIOS ? 'ios' : 'android',
     });
   }
 
   Future<void> unregisterDeviceFromPush() async {
     if (DriveFirebaseConfig.emulator || kIsWeb) return;
-    final token = await FirebaseMessaging.instance.getToken();
-    if (token != null) {
-      try {
-        await _call('unregisterPushToken', {'token': token});
-      } finally {
-        await FirebaseMessaging.instance.deleteToken();
-      }
+    final id = _registeredInstallationId;
+    if (id != null) {
+      await _call('unregisterPushToken', {'token': id});
     }
+    await FirebaseMessaging.instance.unregister();
+    _registeredInstallationId = null;
   }
+
 }

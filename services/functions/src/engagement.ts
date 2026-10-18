@@ -100,7 +100,7 @@ export const rateCompletedRide = onCall(callOptions, async request => {
 export const registerPushToken = onCall(callOptions, async request => {
   const uid = userId(request.auth);
   const input = validate(z.object({
-    token: z.string().trim().min(30).max(4096),
+    token: z.string().trim().min(12).max(256),
     platform: z.enum(["android", "ios"])
   }).strict(), request.data);
   const fingerprint = createHash("sha256").update(input.token).digest("hex");
@@ -114,7 +114,7 @@ export const registerPushToken = onCall(callOptions, async request => {
 export const unregisterPushToken = onCall(callOptions, async request => {
   const uid = userId(request.auth);
   const input = validate(z.object({
-    token: z.string().trim().min(30).max(4096)
+    token: z.string().trim().min(12).max(256)
   }).strict(), request.data);
   const fingerprint = createHash("sha256").update(input.token).digest("hex");
   await db().doc("pushTokens/" + uid + "/tokens/" + fingerprint).delete();
