@@ -335,7 +335,7 @@ export default function App() {
         if(!mounted||auth.currentUser?.uid!==current.uid)return;
         if(token.claims.admin!==true){
           setError("This account does not have a trusted administrator claim.");
-          await signOut(current.auth);
+          await signOut(auth!);
           return;
         }
         setAdmin(true);setError("");
