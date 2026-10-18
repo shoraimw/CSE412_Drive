@@ -1,20 +1,21 @@
 import {
-  collection, getDoc, getDocs, doc, limit, onSnapshot, orderBy,
-  query, where, type DocumentData, type Unsubscribe
+  collection, getDoc, getDocs, doc, limit, onSnapshot, orderBy, startAfter,
+  query, where, type DocumentData, type Unsubscribe, type QueryDocumentSnapshot
 } from "firebase/firestore";
 import {httpsCallable} from "firebase/functions";
-import {db, functions} from "./firebase";
+import {db, functions, auth} from "./firebase";
 
 export type AdminRow = {id: string} & Record<string, unknown>;
 export type Tab =
-  "overview" | "drivers" | "owners" | "vehicles" |
-  "rides" | "rentals" | "payments" | "safety" |
+  "overview" | "users" | "drivers" | "owners" | "vehicles" |
+  "rides" | "rentals" | "payments" | "safety" | "disputes" |
   "pricing" | "audit";
 export type QueueTab = "drivers" | "owners" | "vehicles";
-export type ActivityTab = "rides" | "rentals" | "payments" | "safety" | "audit";
+export type ActivityTab = "rides" | "rentals" | "payments" | "safety" | "disputes" | "audit";
 
 export const menu: Array<{id: Tab; label: string; group: string}> = [
   {id:"overview",label:"Overview",group:"Monitoring"},
+  {id:"users",label:"Account lookup",group:"Monitoring"},
   {id:"drivers",label:"Driver approvals",group:"Verification"},
   {id:"owners",label:"Owner approvals",group:"Verification"},
   {id:"vehicles",label:"Vehicle approvals",group:"Verification"},
@@ -22,13 +23,14 @@ export const menu: Array<{id: Tab; label: string; group: string}> = [
   {id:"rentals",label:"Rental operations",group:"Operations"},
   {id:"payments",label:"Payment records",group:"Operations"},
   {id:"safety",label:"Safety incidents",group:"Safety"},
+  {id:"disputes",label:"Service disputes",group:"Support"},
   {id:"pricing",label:"Pricing controls",group:"Configuration"},
   {id:"audit",label:"Audit history",group:"Safety"},
 ];
 export const queueTab = (tab: Tab): tab is QueueTab =>
   ["drivers","owners","vehicles"].includes(tab);
 export const activityTab = (tab: Tab): tab is ActivityTab =>
-  ["rides","rentals","payments","safety","audit"].includes(tab);
+  ["rides","rentals","payments","safety","disputes","audit"].includes(tab);
 
 const sources: Record<QueueTab,{collection:string;field:string}> = {
   drivers: {collection:"driverApplications",field:"status"},
@@ -40,6 +42,7 @@ const activitySources: Record<ActivityTab,string> = {
   rentals:"rentalBookings",
   payments:"payments",
   safety:"safetyIncidents",
+  disputes:"serviceDisputes",
   audit:"auditEvents",
 };
 const fromData = (id:string, data:DocumentData):AdminRow=>({...data,id});
@@ -57,11 +60,27 @@ export function pendingStream(tab:QueueTab,
   );
 }
 
-export async function activityRows(tab:ActivityTab):Promise<AdminRow[]> {
+export const activityPageSize=30;
+export type ActivityPage={
+  rows: AdminRow[];
+  cursor: QueryDocumentSnapshot<DocumentData> | null;
+};
+export async function activityRows(
+  tab:ActivityTab,
+  after:QueryDocumentSnapshot<DocumentData>|null=null
+):Promise<ActivityPage> {
   if (!db) throw new Error("Firebase is not configured.");
-  const records = await getDocs(query(collection(db,activitySources[tab]),
-    orderBy("createdAt","desc"),limit(60)));
-  return records.docs.map(d=>fromData(d.id,d.data()));
+  const base=[orderBy("createdAt","desc"),limit(activityPageSize)];
+  // Firestore cursor pagination avoids loading enormous historical datasets.
+  const q=after
+    ? query(collection(db,activitySources[tab]),...base,startAfter(after))
+    : query(collection(db,activitySources[tab]),...base);
+  const snapshots=await getDocs(q);
+  return {
+    rows:snapshots.docs.map(d=>fromData(d.id,d.data())),
+    cursor:snapshots.docs.length===activityPageSize
+      ? snapshots.docs[snapshots.docs.length-1] : null,
+  };
 }
 
 export type OverviewData = {
@@ -99,7 +118,11 @@ export async function activePricing():Promise<{
 export async function callAdmin<TInput extends Record<string,unknown>>(
   name:string, payload:TInput
 ):Promise<Record<string,unknown>> {
-  if (!functions) throw new Error("Firebase Functions not configured.");
+  if (!functions || !auth?.currentUser) {
+    throw new Error("Administrator session unavailable.");
+  }
+  // Fresh claims reduce the stale-role window after an admin is revoked.
+  await auth.currentUser.getIdToken(true);
   const callable=httpsCallable<TInput,Record<string,unknown>>(functions,name);
   const result=await callable(payload);
   return result.data;
