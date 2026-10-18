@@ -30,3 +30,7 @@ Launch Firebase emulators from the repository root before running the app. Use t
 ## Phase 5 driver workflows
 
 The driver GPS, expiring offer, trip navigation, completion and estimated-gross dashboards are documented in [Phase 5](../../docs/PHASE_5_DRIVER.md). After flutter create, run the foreground location permission script: dart run tool/configure_driver_permissions.dart.
+
+## Phase 6 payments and communications
+
+See [Phase 6 guide](../../docs/PHASE_6_PAYMENTS_CHAT_NOTIFICATIONS.md) for cash, Stripe test PaymentSheet, webhook secrets, notifications, chat, ratings and Android native setup (`dart run tool/configure_phase6.dart` after flutter create). Never enable Stripe live keys.
