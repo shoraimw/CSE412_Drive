@@ -33,9 +33,56 @@ void main() {
     file.writeAsStringSync(xml);
   }
 
+  // file_picker 11.0.1–11.0.3 assumes AGP 9 built-in Kotlin is enabled.
+  // Flutter's generated template can keep it disabled, so force Kotlin compilation
+  // for this subproject and pin its bytecode target to Java 17.
+  const marker = 'DRIVE_FILE_PICKER_AGP9_FIX';
+  const groovyFix = '''
+// DRIVE_FILE_PICKER_AGP9_FIX
+subprojects {
+    if (name == "file_picker") {
+        apply plugin: "org.jetbrains.kotlin.android"
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            compilerOptions {
+                jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+            }
+        }
+    }
+}
+''';
+  const kotlinFix = '''
+// DRIVE_FILE_PICKER_AGP9_FIX
+subprojects {
+    if (name == "file_picker") {
+        pluginManager.apply("org.jetbrains.kotlin.android")
+        tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+            compilerOptions {
+                jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+            }
+        }
+    }
+}
+''';
+  final groovyGradle = File('android/build.gradle');
+  final kotlinGradle = File('android/build.gradle.kts');
+  if (groovyGradle.existsSync()) {
+    final content = groovyGradle.readAsStringSync();
+    if (!content.contains(marker)) {
+      groovyGradle.writeAsStringSync('$content\n$groovyFix');
+    }
+  } else if (kotlinGradle.existsSync()) {
+    final content = kotlinGradle.readAsStringSync();
+    if (!content.contains(marker)) {
+      kotlinGradle.writeAsStringSync('$content\n$kotlinFix');
+    }
+  } else {
+    throw FileSystemException('Could not find the generated Android root Gradle file.');
+  }
+
   final manifest = File('android/app/src/main/AndroidManifest.xml');
   if (!manifest.existsSync()) throw FileSystemException('Missing Android manifest.');
   var xml = manifest.readAsStringSync();
+  xml = xml.replaceAll('android:label="drive_mobile"', 'android:label="DRIVE"');
   const permission = 'android.permission.POST_NOTIFICATIONS';
   if (!xml.contains(permission)) {
     final pos = xml.indexOf('>');
@@ -59,6 +106,6 @@ void main() {
   if (!existing.contains('-keep class com.stripe.**')) {
     proguard.writeAsStringSync('$existing\n$rules');
   }
-  stdout.writeln('Stripe Android FragmentActivity/theme and notification permission configured.');
+  stdout.writeln('Stripe Android host, file_picker Kotlin target, app label and notification permission configured.');
   stdout.writeln('Enable APNs/Push capability in Xcode for real iOS notifications.');
 }
