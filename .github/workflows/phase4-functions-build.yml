@@ -1,0 +1,25 @@
+name: Phase 4 server TypeScript build
+on:
+  push:
+    paths:
+      - "services/functions/**"
+      - ".github/workflows/phase4-functions-build.yml"
+  pull_request:
+    paths:
+      - "services/functions/**"
+      - ".github/workflows/phase4-functions-build.yml"
+jobs:
+  typescript:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install backend dependencies
+        run: npm --prefix services/functions install --no-audit --no-fund
+      - name: Type-check and compile Cloud Functions
+        run: npm --prefix services/functions run build
+      - name: Domain unit tests
+        run: npm --prefix services/functions test
