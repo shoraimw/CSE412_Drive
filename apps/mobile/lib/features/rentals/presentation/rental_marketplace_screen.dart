@@ -112,13 +112,19 @@ class _RentalMarketplaceScreenState
 
   Future<void> book(Map<String, dynamic> vehicle, String vehicleId) async {
     final selected = window;
+    final t = AppLocalizations.of(context);
     if (selected == null) {
-      showDriveMessage(context, AppLocalizations.of(context).rentalWindowNotSelected);
+      showDriveMessage(context, t.rentalWindowNotSelected);
+      return;
+    }
+    final windowError = selected.validationError(now: DateTime.now());
+    if (windowError != null) {
+      showDriveMessage(context,
+          windowError.contains('90 days') ? t.rentalStartError : t.rentalWindowError);
       return;
     }
     final rate = (vehicle['rentalRatePerHourMinor'] as num?)?.toInt() ?? 0;
     final total = selected.totalMinor(rate);
-    final t = AppLocalizations.of(context);
     final accepted = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -341,7 +347,9 @@ class _RentalMarketplaceScreenState
             style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           if (maxRateController.text.trim().isNotEmpty &&
-              double.tryParse(maxRateController.text.trim()) == null)
+              (double.tryParse(maxRateController.text.trim()) == null ||
+               double.tryParse(maxRateController.text.trim())! < 1 ||
+               double.tryParse(maxRateController.text.trim())! > 50000))
             Text(t.rentalRateError,
               style: TextStyle(color: Theme.of(context).colorScheme.error)),
           StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(

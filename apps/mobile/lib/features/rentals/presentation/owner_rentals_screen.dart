@@ -69,16 +69,17 @@ class _OwnerRentalsScreenState extends ConsumerState<OwnerRentalsScreen> {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
-    return Scaffold(
-      appBar: AppBar(title: Text(t.ownerCenter)),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: addVehicle,
-        icon: const Icon(Icons.add),
-        label: Text(t.rentalAddVehicle),
-      ),
-      body: SafeArea(child: ListView(padding: const EdgeInsets.all(16),
+    return ListView(padding: const EdgeInsets.all(16),
         children: [
           DriveHeader(title: t.ownerCenter, subtitle: t.ownerReady),
+          const SizedBox(height: 12),
+          SizedBox(width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: addVehicle,
+              icon: const Icon(Icons.add),
+              label: Text(t.rentalAddVehicle),
+            ),
+          ),
           const SizedBox(height: 18),
           Text(t.rentalMyVehicles,
             style: Theme.of(context).textTheme.titleLarge),
@@ -121,8 +122,7 @@ class _OwnerRentalsScreenState extends ConsumerState<OwnerRentalsScreen> {
             },
           ),
         ],
-      )),
-    );
+      );
   }
 
   Widget _ownerBookingCard(
