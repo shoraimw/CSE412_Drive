@@ -34,6 +34,8 @@ class DriverScreen extends ConsumerStatefulWidget {
 
 class _DriverScreenState extends ConsumerState<DriverScreen>
     with WidgetsBindingObserver {
+  late final Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> rideStream;
+  late final Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> offerStream;
   StreamSubscription<Position>? gpsSubscription;
   Timer? countdown;
   bool busy = false;
@@ -48,6 +50,8 @@ class _DriverScreenState extends ConsumerState<DriverScreen>
   @override
   void initState() {
     super.initState();
+    rideStream = ref.read(driverRepositoryProvider).rides(widget.uid);
+    offerStream = ref.read(driverRepositoryProvider).offers(widget.uid);
     WidgetsBinding.instance.addObserver(this);
     countdown = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
@@ -245,9 +249,8 @@ class _DriverScreenState extends ConsumerState<DriverScreen>
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final online = widget.profile['online'] == true;
-    final repository = ref.watch(driverRepositoryProvider);
     return StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
-      stream: repository.rides(widget.uid),
+      stream: rideStream,
       builder: (context, snapshots) {
         if (snapshots.hasError) {
           return DriveErrorView(
@@ -319,7 +322,7 @@ class _DriverScreenState extends ConsumerState<DriverScreen>
                 style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
               StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
-                stream: repository.offers(widget.uid),
+                stream: offerStream,
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return Text('${t.somethingWrong}: ${snapshot.error}');
