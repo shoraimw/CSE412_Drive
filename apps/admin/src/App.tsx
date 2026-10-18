@@ -433,6 +433,7 @@ export default function App() {
   const [activityCursor,setActivityCursor]=useState<ActivityPage["cursor"]>(null);
   const [loadingMore,setLoadingMore]=useState(false);
   const tabRef=useRef(tab);
+  const pageEpoch=useRef(0);
   tabRef.current=tab;
   const [busy,setBusy]=useState(false);
   const [review,setReview]=useState<Review|null>(null);
@@ -467,12 +468,14 @@ export default function App() {
   useEffect(()=>{
     if(!admin||!user)return;
     let alive=true;
+    pageEpoch.current+=1;
     setRows([]);setActivityCursor(null);setLoadingMore(false);
     setLoading(true);setError("");
     if(queueTab(tab)){
-      return pendingStream(tab,
+      const unsubscribe=pendingStream(tab,
         result=>{if(alive){setRows(result);setLoading(false);}},
         message=>{if(alive){setError(message);setLoading(false);}});
+      return ()=>{alive=false;unsubscribe();};
     }
     if(activityTab(tab)){
       void activityRows(tab).then(result=>{
@@ -497,18 +500,20 @@ export default function App() {
   async function older(){
     if(!activityTab(tab)||!activityCursor||loadingMore)return;
     const requestedTab=tab;
+    const requestedEpoch=pageEpoch.current;
     setLoadingMore(true);setError("");
     try{
       const page=await activityRows(tab,activityCursor);
-      if(tabRef.current===requestedTab){
+      if(tabRef.current===requestedTab&&pageEpoch.current===requestedEpoch){
         setRows(previous=>appendUniqueRows(previous,page.rows));
         setActivityCursor(page.cursor);
       }
     }catch(e){
-      if(tabRef.current===requestedTab){
+      if(tabRef.current===requestedTab&&pageEpoch.current===requestedEpoch){
         setError(e instanceof Error?e.message:"Older records unavailable.");
       }
-    }finally{if(tabRef.current===requestedTab)setLoadingMore(false);}
+    }finally{if(tabRef.current===requestedTab&&
+      pageEpoch.current===requestedEpoch)setLoadingMore(false);}
   }
 
   async function login(event:FormEvent<HTMLFormElement>) {
