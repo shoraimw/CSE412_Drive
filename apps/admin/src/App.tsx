@@ -27,7 +27,7 @@ export default function App() {
         const token = await current.getIdTokenResult(true);
         if (token.claims.admin !== true) {
           setError("This account does not have the server-assigned admin claim.");
-          await signOut(auth);
+          await signOut(current.auth);
           return;
         }
         setIsAdmin(true); setError("");
