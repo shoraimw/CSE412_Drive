@@ -420,20 +420,30 @@ export const dispatchNearbyDrivers = onCall(options, async request => {
       return false;
     });
   }
+  // Cap the number of simultaneous driver-profile reads. A fully serial loop
+  // creates unacceptable tail latency in dense locations; unbounded Promise.all
+  // produces bursts of expensive Firestore operations under high load.
   const ranked: {uid: string; score: number}[] = [];
-  for (const [driverId, {km}] of [...candidates].slice(0, 90)) {
-    if (!driverId || driverId === uid) continue;
-    const [profile, busy] = await Promise.all([
-      db.doc("driverProfiles/" + driverId).get(),
-      db.doc("driverBusy/" + driverId).get()
-    ]);
-    if (busy.exists || profile.get("approvalStatus") !== "approved" ||
-        profile.get("online") !== true || profile.get("vehicleType") !== ride.get("vehicleType")) {
-      continue;
+  const nearby = [...candidates].slice(0, 90)
+    .filter(([driverId]) => driverId.length > 0 && driverId !== uid);
+  const chunkSize = 12;
+  for (let i = 0; i < nearby.length; i += chunkSize) {
+    const batch = nearby.slice(i, i + chunkSize);
+    const scored = await Promise.all(batch.map(async ([driverId, value]) => {
+      const [profile, busy] = await Promise.all([
+        db.doc("driverProfiles/" + driverId).get(),
+        db.doc("driverBusy/" + driverId).get()
+      ]);
+      if (busy.exists || profile.get("approvalStatus") !== "approved" ||
+          profile.get("online") !== true ||
+          profile.get("vehicleType") !== ride.get("vehicleType")) return null;
+      return {uid: driverId, score: scoreDriver(value.km,
+        Number(profile.get("ratingAverage") ?? 5),
+        Number(profile.get("acceptanceRate") ?? 1))};
+    }));
+    for (const candidate of scored) {
+      if (candidate) ranked.push(candidate);
     }
-    ranked.push({uid: driverId, score: scoreDriver(km,
-      Number(profile.get("ratingAverage") ?? 5),
-      Number(profile.get("acceptanceRate") ?? 1))});
   }
   ranked.sort((a, b) => b.score - a.score);
   const selected = ranked.slice(0, 3);

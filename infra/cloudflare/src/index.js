@@ -47,6 +47,34 @@ export default {
     const perToken = await env.USER_LIMIT.limit({key: "auth:" + tokenKey});
     if (!perToken.success) return json(429, "account_rate_limited", {"retry-after": "60"});
 
+    // Also enforce byte limits on streamed/chunked bodies. Content-Length can
+    // be absent or untrustworthy, so a header-only limit is insufficient.
+    let limitedBody;
+    if (request.method === "POST" && request.body) {
+      const reader = request.body.getReader();
+      const chunks = [];
+      let size = 0;
+      try {
+        while (true) {
+          const part = await reader.read();
+          if (part.done) break;
+          size += part.value.byteLength;
+          if (size > 16384) {
+            await reader.cancel();
+            return json(413, "request_too_large");
+          }
+          chunks.push(part.value);
+        }
+      } finally {
+        reader.releaseLock();
+      }
+      limitedBody = new Uint8Array(size);
+      let copied = 0;
+      for (const part of chunks) {
+        limitedBody.set(part, copied);
+        copied += part.byteLength;
+      }
+    }
     const baseText = env.DRIVE_ORIGIN_URL || "";
     let base;
     try { base = new URL(baseText); } catch { return json(503, "origin_unconfigured"); }
@@ -66,7 +94,7 @@ export default {
       const response = await fetch(new Request(upstream, {
         method: request.method,
         headers,
-        body: request.method === "GET" ? undefined : request.body,
+        body: request.method === "GET" ? undefined : limitedBody,
         redirect: "manual",
         signal: AbortSignal.timeout(6000),
       }));
