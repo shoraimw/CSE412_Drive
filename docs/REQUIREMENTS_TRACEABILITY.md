@@ -68,3 +68,7 @@ The original PDF specifies scalability, security and performance but not a numer
 ## Phase 8 Admin Operations
 
 The existing React vehicle-approval foundation has been expanded into a protected admin operations dashboard with the workflows described in [Phase 8 documentation](PHASE_8_ADMIN_OPERATIONS.md). Role claims remain server-assigned, Firestore audit records cannot be client-modified, private KYC document previews use Firebase Storage rules, and safety triage records a human review without claiming emergency notification delivery. Admin analytics remain **bounded recent samples**; they are not exhaustive production metrics.
+
+### Phase 8 second-pass admin operations
+
+Audited service dispute priority and reviewer ownership, bounded loaded-page search/status filtering and optimistic-concurrency pricing publication are now implemented in the React admin and trusted Cloud Functions. These features do not deliver SOS messages, process refunds, or prove million-user throughput.

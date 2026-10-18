@@ -60,3 +60,7 @@ To deploy, use a SEPARATE Firebase Hosting site and
 Production Firebase Auth/App Check, domain, security headers and live KYC
 document access require testing. No real refund, settlement or emergency
 notification is performed through this admin dashboard.
+
+## Phase 8 second-pass redo
+
+The existing 12-tab dashboard now includes a priority/ownership **Triage** action for support cases, case-insensitive search and status filters on loaded operational pages, and server-verified optimistic concurrency for pricing publication. For exact workflows, permissions and the complete release checklist see [Phase 8 guide](../../docs/PHASE_8_ADMIN_OPERATIONS.md). No actual refund, SOS delivery, Cloudflare deployment or whole-database analytics is implied.

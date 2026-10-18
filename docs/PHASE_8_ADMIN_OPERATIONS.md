@@ -37,6 +37,105 @@ Firestore rules allow a dispute to be read only by its original reporter or a tr
 
 A case marked resolved means support reviewed it—not that cash, cards or rentals were refunded. Financial reconciliation/refund tools need provider-level integration, dual authorization and accounting policies. Likewise, safety incidents remain internal records until emergency notification workflows are built and tested.
 
+
+## Phase 8 redo — second-pass improvements (18 October 2026)
+
+This revision **extends** the previously rebuilt 12-screen console, rather than deleting
+working driver/owner/vehicle approval, pricing, ride/rental/payment browsing, account
+lookup, incident review and audit history.
+
+### Added: priority and reviewer ownership for service disputes
+
+- The customer-facing openServiceDispute callable now sets **high priority** on
+  safety-topic disputes and **normal priority** for other topics. This is
+  *internal case priority only*: it does not notify emergency contacts or
+  police, and does not promise a response time.
+- Trusted staff can use the new **Triage** button on an open or in_review
+  dispute to set low/normal/high priority, **take ownership**, **release their
+  own ownership**, or retain the current assignment.
+- The new triageServiceDispute callable verifies the administrator's custom
+  claim, validates a 20–800-character reason, enforces the expected status,
+  prevents another administrator from stealing an already assigned case,
+  and writes a separate immutable auditEvents record in the same transaction.
+- Closed disputes cannot be reprioritized. A reviewer assignment is a
+  coordination indicator, **not** an exclusive authorization boundary:
+  all trusted admins can still review cases under the existing policy.
+- Existing older disputes without a priority field are displayed as
+  normal until triaged; no database-wide backfill or mass export is run.
+- Triage does **not** process payments, refunds, payouts, chargebacks,
+  external notifications or emergency calls.
+
+### Added: bounded operations search and status filters
+
+- Ride, rental, payment, incident, dispute and audit views now support
+  case-insensitive search over the already-loaded identifiers/types.
+- A status selector filters currently loaded records; disputes also have
+  priority filters. Filter counts explicitly indicate the loaded-page
+  boundary. To search older data, click **Load older records**.
+- This is **not a global database search**. At million-user scale, use
+  a dedicated role-gated indexed search service with audit, pagination,
+  query limits and strict privacy review; do not query all Firestore docs.
+
+### Added: safe concurrent pricing publication
+
+The browser includes the active pricing version it loaded in
+expectedActiveVersion. The Cloud Function compares this value to the
+currently active version inside its transaction. A stale admin form is
+rejected rather than silently replacing another administrator's rates.
+
+**Breaking callable input change:** publishPricingConfig now requires
+expectedActiveVersion. All admin clients must update to the new schema
+before the backend is deployed. For first-time config with no active
+version, send the empty string. The React admin is already updated.
+
+### Verification and limitations
+
+- React dashboard tests/build are covered by Phase 8 Admin dashboard CI.
+- TypeScript Functions build and Firebase emulator suite must be verified
+  separately. Do not treat a passing React build as proof that Firebase
+  rules, Cloud Functions, Cloudflare, Stripe or real-device flows work.
+- Production hosting, custom domain/Cloudflare setup, Firebase App Check,
+  MFA/SSO, operator training, dispute policy and privacy compliance remain
+  operational prerequisites, not automated by this commit.
+- Existing auditEvents are backend-created and Firestore rules prohibit
+  client writes. Case triage follows the same rule.
+
+### Acceptance checklist for the new functionality
+
+1. Sign in with an admin claim; open **Service disputes** and choose an
+   open or in_review case.
+2. Filter by priority or service ID. Confirm that only loaded records are
+   searched and that page controls can fetch older records.
+3. Press **Triage** and assign yourself; enter a factual 20+ character
+   reason. Verify priority and assignedTo update and an auditEvents entry.
+4. Try taking an assigned case with another admin: it must fail without
+   overwriting the current assignee.
+5. Try releasing a case assigned to someone else: it must fail.
+6. Resolve the case, then attempt to triage it again: it must fail.
+7. Open Pricing on two admin sessions. Publish a new version in one
+   session; attempt publication from the stale other session. The server
+   must reject the second publication with a reload instruction.
+8. Sign in as a rider without admin claim. Direct admin Firestore reads
+   and triage/pricing callables must be denied.
+
+### Updated Windows commands
+
+From the cloned repo root:
+
+~~~powershell
+npm --prefix services/functions install
+npm --prefix services/functions run build
+cd apps\admin
+npm install
+npm test
+npm run build
+npm run audit:bundle
+npm run dev
+~~~
+
+The dev server is localhost-only. Use .env.local with Firebase **Web client**
+configuration; never commit service-account keys or Stripe secret keys.
+
 ## 1. Goal and requirements mapping
 
 The submitted Group 5 requirement analysis describes Authentication & Security, User Management, Vehicle Rental, Smart Ride Booking, Matching/Cost Sharing, Live Ride Tracking, Smart Fare Prediction, AI Route Optimization, Multi-Currency Payment, Women Safety Mode, Smart Emergency/Safe Trip and Tourist Mode. The implementation SRS expands this into administrator operations (FR-22) and admin analytics (FR-23).
@@ -258,7 +357,7 @@ Phase 8 improves requirement group 2 (User Management), group 3 (Vehicle Rental 
 Frontend (Windows):
 
 ~~~powershell
-cd CSE412_Driveappsadmin
+cd CSE412_Drive\apps\admin
 npm install
 npm test
 npm run build

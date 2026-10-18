@@ -55,3 +55,5 @@ npm run emulators
 ~~~
 
 Details, Windows PowerShell instructions, security boundaries, and the API reference are in the [Phase 2 guide](docs/PHASE_2_FIREBASE.md). A real Firebase project and deployment are not created automatically.
+
+**Phase 8 redo (second pass):** Admin support cases now have audited priority/assignment triage, loaded-page operational filters and safe concurrent pricing version publication. See [Phase 8 Operations Guide](docs/PHASE_8_ADMIN_OPERATIONS.md).

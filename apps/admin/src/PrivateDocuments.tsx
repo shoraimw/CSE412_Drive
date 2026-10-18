@@ -10,7 +10,9 @@ export default function PrivateDocuments({
   const [working,setWorking]=useState<number|null>(null);
   const [error,setError]=useState("");
   const urlRef=useRef<string|null>(null);
-  useEffect(()=>()=>{if(urlRef.current)URL.revokeObjectURL(urlRef.current);},[]);
+  const mountedRef=useRef(true);
+  useEffect(()=>()=>{mountedRef.current=false;
+    if(urlRef.current)URL.revokeObjectURL(urlRef.current);},[]);
   const paths=Array.isArray(documentPaths)&&documentPaths.length===3 &&
     documentPaths.every(x=>typeof x==="string" &&
       x.startsWith("applications/"+uid+"/")&&!x.includes(".."))
@@ -30,12 +32,13 @@ export default function PrivateDocuments({
       if(!["image/jpeg","image/png","image/webp","application/pdf"].includes(blob.type)){
         throw new Error("Unsupported document type.");
       }
+      if(!mountedRef.current)return;
       const url=URL.createObjectURL(blob);
       urlRef.current=url;
       setPreview({url,mime:blob.type,index});
     }catch{
-      setError("Unable to read this private document. Verify its type, Storage rules, bucket CORS and admin claim.");
-    }finally{setWorking(null);}
+      if(mountedRef.current)setError("Unable to read this private document. Verify its type, Storage rules, bucket CORS and admin claim.");
+    }finally{if(mountedRef.current)setWorking(null);}
   }
   if(!paths)return <p className="muted small">Three verified document references
     are required before this application can be reviewed.</p>;
