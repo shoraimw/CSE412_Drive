@@ -8,6 +8,7 @@ on:
         type: string
 permissions:
   contents: read
+  actions: read
   id-token: write
 concurrency:
   group: drive-staging-release
@@ -38,6 +39,24 @@ jobs:
           CONFIRM_DEPLOY: ${{ inputs.confirm_deploy }}
           DRIVE_STAGING_APPROVED: ${{ vars.DRIVE_STAGING_APPROVED }}
         run: node tests/qa/check_staging_target.mjs
+      - name: Require a successful full quality gate on this exact commit
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const result = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'phase9-quality-gate.yml',
+              head_sha: context.sha,
+              status: 'completed',
+              per_page: 30
+            });
+            const passing = result.data.workflow_runs.some(run =>
+              run.head_sha === context.sha && run.conclusion === 'success');
+            if (!passing) {
+              core.setFailed('Phase 9 quality gate has not passed on ' + context.sha +
+                '. Run the quality gate before manual staging deployment.');
+            }
       - name: Authenticate to dedicated staging GCP service account
         uses: google-github-actions/auth@v2
         with:
@@ -61,3 +80,8 @@ jobs:
         run: npx firebase-tools target:apply hosting drive-admin "$DRIVE_STAGING_ADMIN_SITE_ID" --project "$DRIVE_STAGING_PROJECT_ID"
       - name: Publish admin website to staging only
         run: npx firebase-tools deploy --config firebase.admin.json --only hosting:drive-admin --project "$DRIVE_STAGING_PROJECT_ID" --non-interactive
+      - name: Smoke-test the released HTTPS admin website (read-only)
+        env:
+          CONFIRM_DEPLOY: ${{ inputs.confirm_deploy }}
+          DRIVE_STAGING_APPROVED: ${{ vars.DRIVE_STAGING_APPROVED }}
+        run: node tests/qa/smoke_staging_admin.mjs

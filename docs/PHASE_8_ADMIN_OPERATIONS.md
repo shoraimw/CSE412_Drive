@@ -1,7 +1,7 @@
 # DRIVE — Phase 8 Redo: React Operations, Account Support and Disputes
 
 **Course:** CSE412 Software Engineering · East West University · Fall 2026
-**Status:** Rebuilt Phase 8 source with account diagnostics, participant-initiated disputes, server-side audit, safer hosting and cursor pagination. Production project credentials, deployment, real Stripe refunds and end-to-end operator acceptance are separate steps.
+**Status (18 Oct 2026): Phase 8 implementation and automated verification complete.** The full Firebase backend/emulator run and cross-platform CI quality gate passed after aligning the Functions emulator database instance and checked-in indexed Realtime Database rules. Live staging credentials, deployment, operator acceptance and real-world integrations remain separate Phase 9 release gates.
 
 ## Phase 8 redo summary
 
@@ -446,9 +446,9 @@ Refresh the admin ID token or sign out/in after claim creation. Never grant a li
 - [x] Firebase local emulator and App Check web configuration switches
 - [x] Unit tests, build workflow, backend and rules test sources
 - [ ] Live staging Firebase, Storage CORS and private-document review validation
-- [ ] Latest full Firebase emulator suite passing CI, including new triage and stale-pricing scenarios
+- [x] Latest full Firebase emulator suite passing CI, including new triage and stale-pricing scenarios — [passing backend run](https://github.com/shoraimw/CSE412_Drive/actions/runs/39129170751)
 - [ ] Whole-platform analytics warehouse and distributed aggregate counters
 - [ ] Real provider refunds, payout ledger, dispute financial resolution, 24/7 emergency response
 - [ ] Security review, multi-admin separation of duties, audit retention and scale testing
 
-**Next phase:** Phase 9 — systematic QA, tests, deployment automation and production-readiness preparation. Phase 9 is not started until the user says next.
+**Handoff:** Phase 8 code/test gate passed on 18 Oct 2026. Phase 9 is proceeding with [its green cross-platform CI gate](https://github.com/shoraimw/CSE412_Drive/actions/runs/39129170587), staging-only deployment automation, live acceptance and release hardening. Unimplemented refunds, global analytics, external SOS and million-user validation remain distinct product/release gaps.
