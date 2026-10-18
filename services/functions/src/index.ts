@@ -5,7 +5,7 @@ export {
 } from "./engagement";
 export {
   chooseCashForRide, reportCashReceived,
-  prepareStripeTestPayment, stripeTestWebhook
+  prepareStripeTestCheckout, stripeTestWebhook
 } from "./payments";
 
 import {initializeApp} from "firebase-admin/app";
