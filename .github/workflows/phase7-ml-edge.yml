@@ -1,0 +1,46 @@
+name: Phase 7 ML and Edge Security
+on:
+  push:
+    paths:
+      - "services/ml/**"
+      - "infra/cloudflare/**"
+      - ".github/workflows/phase7-ml-edge.yml"
+  pull_request:
+    paths:
+      - "services/ml/**"
+      - "infra/cloudflare/**"
+      - ".github/workflows/phase7-ml-edge.yml"
+
+jobs:
+  private-ml:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: "services/ml/pyproject.toml"
+      - name: Install ML service with test dependencies
+        working-directory: services/ml
+        run: python -m pip install -e ".[test]"
+      - name: Compile and unit-test FastAPI + training
+        working-directory: services/ml
+        run: |
+          python -m compileall -q app
+          python -m pytest -q
+  cloudflare-edge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Worker testing tools
+        working-directory: infra/cloudflare
+        run: npm install --no-audit --no-fund
+      - name: Run edge security tests
+        working-directory: infra/cloudflare
+        run: npm test

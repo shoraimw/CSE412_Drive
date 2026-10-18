@@ -44,3 +44,11 @@ apps/mobile/ios/Flutter/DriveMapsKeys.xcconfig
 
 # Local Google Maps API secret for Functions emulator
 services/functions/.secret.local
+
+# Phase 7 de-identified ML input and binary model artifacts
+services/ml/data/
+services/ml/models/
+services/ml/**/*.joblib
+services/ml/.venv/
+services/ml/.pytest_cache/
+services/ml/**/__pycache__/
