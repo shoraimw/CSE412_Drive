@@ -240,7 +240,7 @@ export const triageServiceDispute = onCall({
   enforceAppCheck: process.env.DRIVE_ENFORCE_APP_CHECK === "true"
 }, async request => {
   const adminId = request.auth?.uid;
-  if (!adminId || request.auth.token.admin !== true) {
+  if (!adminId || request.auth?.token.admin !== true) {
     throw new HttpsError("permission-denied", "Trusted admin required.");
   }
   const parsed = triageSchema.safeParse(request.data);
