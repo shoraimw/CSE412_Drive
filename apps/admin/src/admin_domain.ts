@@ -103,3 +103,22 @@ export function appendUniqueRows<T extends {id:string}>(
   }
   return merged;
 }
+
+/** Client-side filtering applies only to already loaded bounded admin pages. */
+export function filterOperationalRows<T extends {id:string} & Record<string,unknown>>(
+  rows:ReadonlyArray<T>, search:string, status:string, priority:string
+):T[] {
+  const needle=search.trim().toLocaleLowerCase();
+  return rows.filter(row=>{
+    const state=typeof row.status==="string"?row.status:"recorded";
+    const rank=typeof row.priority==="string"?row.priority:"normal";
+    if(status!=="all"&&state!==status)return false;
+    if(priority!=="all"&&rank!==priority)return false;
+    if(!needle)return true;
+    const searchable=[
+      row.id,row.serviceId,row.vehicleId,row.ownerId,row.riderId,
+      row.driverId,row.type,row.serviceType,row.topic,row.method,
+    ].filter(value=>typeof value==="string").join(" ").toLocaleLowerCase();
+    return searchable.includes(needle);
+  });
+}

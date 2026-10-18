@@ -1,7 +1,7 @@
 import {describe, expect, it} from "vitest";
 import {
   appendUniqueRows, bdt, demoRates, parseRatePlan, recentStatusCounts,
-  shortId, validateFarePlan,
+  shortId, validateFarePlan, filterOperationalRows,
 } from "./admin_domain";
 
 describe("Phase 8 admin domain", () => {
@@ -38,5 +38,19 @@ describe("Phase 8 admin domain", () => {
     expect(recentStatusCounts([
       {status: "completed"}, {status: "matching"}, {status: "completed"}
     ])).toEqual({completed: 2, matching: 1});
+  });
+});
+
+describe("bounded operational search",()=>{
+  const rows=[
+    {id:"case-101",status:"open",priority:"high",serviceId:"ride-11",topic:"safety"},
+    {id:"case-102",status:"in_review",priority:"normal",serviceId:"rental-55",topic:"payment"},
+    {id:"case-103",status:"resolved",serviceId:"ride-22",topic:"service"},
+  ];
+  it("filters by status, priority and service identifier without fetching more records",()=>{
+    expect(filterOperationalRows(rows,"","open","high").map(x=>x.id)).toEqual(["case-101"]);
+    expect(filterOperationalRows(rows,"RENTAL-55","all","all").map(x=>x.id)).toEqual(["case-102"]);
+    expect(filterOperationalRows(rows,"","all","normal").map(x=>x.id)).toEqual(["case-102","case-103"]);
+    expect(filterOperationalRows(rows,"unknown","all","all")).toEqual([]);
   });
 });

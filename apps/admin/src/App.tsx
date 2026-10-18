@@ -14,7 +14,7 @@ import {
 } from "./admin_api";
 import {
   bdt, categories, demoRates, allRateFields, moneyFields,
-  appendUniqueRows, parseRatePlan, recentStatusCounts, shortId, validateFarePlan,
+  appendUniqueRows, filterOperationalRows, parseRatePlan, recentStatusCounts, shortId, validateFarePlan,
   type FarePlan, type RateField, type VehicleCategory
 } from "./admin_domain";
 
@@ -153,6 +153,62 @@ function ReviewDialog({review,busy,onClose,onSubmit}:{
   </div>;
 }
 
+type Triage={
+  row:AdminRow;
+};
+function TriageDialog({item,busy,onClose,onSubmit}:{
+  item:Triage;busy:boolean;onClose:()=>void;
+  onSubmit:(priority:"low"|"normal"|"high",
+    assignment:"take"|"release"|"unchanged",reason:string)=>void;
+}) {
+  const currentPriority=["low","normal","high"].includes(String(item.row.priority))
+    ? String(item.row.priority) as "low"|"normal"|"high" : "normal";
+  const [priority,setPriority]=useState<"low"|"normal"|"high">(currentPriority);
+  const [assignment,setAssignment]=useState<"take"|"release"|"unchanged">("unchanged");
+  const [reason,setReason]=useState("");
+  const valid=reason.trim().length>=20&&reason.trim().length<=400;
+  return <div className="modal-backdrop" role="presentation">
+    <section className="dialog" role="dialog" aria-modal="true"
+      aria-labelledby="triage-heading">
+      <p className="eyebrow">AUDITED INTERNAL TRIAGE</p>
+      <h2 id="triage-heading">Triage dispute {shortId(item.row.id)}</h2>
+      <p className="muted">Changes are checked against the current server status.
+        No refunds, payment mutations or emergency notifications occur.</p>
+      <div className="triage-fields">
+        <label>Priority
+          <select value={priority}
+            onChange={e=>setPriority(e.target.value as "low"|"normal"|"high")}>
+            <option value="low">Low</option>
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+        <label>Reviewer assignment
+          <select value={assignment}
+            onChange={e=>setAssignment(e.target.value as "take"|"release"|"unchanged")}>
+            <option value="unchanged">Keep current assignment</option>
+            <option value="take">Assign to myself</option>
+            <option value="release">Release my assignment</option>
+          </select>
+        </label>
+      </div>
+      <p className="muted small">Current reviewer: {shortId(item.row.assignedTo)}
+        {" · "}Status: {get(item.row,"status")}</p>
+      <label htmlFor="triage-reason">Reason (20–400 characters)</label>
+      <textarea id="triage-reason" rows={4} maxLength={400}
+        autoFocus value={reason} onChange={e=>setReason(e.target.value)}
+        placeholder="Explain priority and ownership changes for the audit log."/>
+      <div className="dialog-actions">
+        <button className="quiet" disabled={busy} onClick={onClose}>Cancel</button>
+        <button className="primary" disabled={busy||!valid}
+          onClick={()=>onSubmit(priority,assignment,reason.trim())}>
+          {busy?"Saving…":"Save triage decision"}
+        </button>
+      </div>
+    </section>
+  </div>;
+}
+
 function Queue({tab,rows,onReview}:{
   tab:QueueTab;rows:AdminRow[];onReview:(r:Review)=>void;
 }) {
@@ -179,11 +235,18 @@ function Queue({tab,rows,onReview}:{
     </div>;
 }
 
-function Operations({tab,rows,onReview}:{
+function Operations({tab,rows,onReview,onTriage}:{
   tab:"rides"|"rentals"|"payments"|"safety"|"disputes"|"audit";
   rows:AdminRow[];
   onReview:(r:Review)=>void;
+  onTriage:(r:Triage)=>void;
 }) {
+  const [search,setSearch]=useState("");
+  const [status,setStatus]=useState("all");
+  const [priority,setPriority]=useState("all");
+  const visible=filterOperationalRows(rows,search,status,priority);
+  const states=[...new Set(rows.map(row=>
+    typeof row.status==="string"?row.status:"recorded"))].sort();
   const config:{
     [key in typeof tab]:{heading:string;description:string}
   }={
@@ -196,19 +259,51 @@ function Operations({tab,rows,onReview}:{
   };
   return <Card>
     <div className="section-heading"><div><h2>{config[tab].heading}</h2><p>{config[tab].description}</p></div></div>
+    <div className="operation-filters" role="group" aria-label="Filter loaded records">
+      <label>Search loaded records
+        <input type="search" value={search}
+          placeholder="Record ID, service ID or type"
+          onChange={e=>setSearch(e.target.value)}/>
+      </label>
+      <label>Status
+        <select value={status} onChange={e=>setStatus(e.target.value)}>
+          <option value="all">All statuses</option>
+          {states.map(state=><option key={state} value={state}>
+            {labelStatus(state)}
+          </option>)}
+        </select>
+      </label>
+      {tab==="disputes"&&<label>Priority
+        <select value={priority} onChange={e=>setPriority(e.target.value)}>
+          <option value="all">All priorities</option>
+          <option value="high">High</option>
+          <option value="normal">Normal</option>
+          <option value="low">Low</option>
+        </select>
+      </label>}
+    </div>
+    <p className="muted small">Showing {visible.length} of {rows.length}
+      loaded records. Filters do not search the entire database.</p>
     {rows.length===0?<Empty title="No recent records" sub="No records were returned for this operational view."/>:
+      visible.length===0?<Empty title="No matching loaded records"
+        sub="Change filters or load older pages to inspect more records."/>:
       <div className="table-scroll"><table><thead><tr>
         <th scope="col">Record</th><th scope="col">Time</th>
         <th scope="col">Type / association</th><th scope="col">State</th>
         <th scope="col">Amount / detail</th><th scope="col">Action</th>
-      </tr></thead><tbody>{rows.map(row=><tr key={row.id}>
+      </tr></thead><tbody>{visible.map(row=><tr key={row.id}>
         <td><code title={row.id}>{shortId(row.id)}</code></td>
         <td className="nowrap">{created(row)}</td>
         <td>{tab==="rides"?text(row.vehicleType)
           :tab==="rentals"?<span title={text(row.vehicleId)}>Vehicle {shortId(row.vehicleId)}</span>
           :tab==="payments"?text(row.method)
           :tab==="safety"?text(row.type)
-          :tab==="disputes"?text(row.serviceType)+" · "+text(row.topic)
+          :tab==="disputes"?<div>{text(row.serviceType)+" · "+text(row.topic)}
+              <div><span className={"pill "+(row.priority==="high"?"bad":"neutral")}>
+                Priority: {text(row.priority??"normal")}
+              </span></div>
+              <small>Reviewer: {shortId(row.assignedTo)}</small>
+            </div>
           :text(row.type)}</td>
         <td><Pill value={tab==="audit"? "logged": row.status??"recorded"}/></td>
         <td>{tab==="rides"?currencyFromFare(row.finalFare??row.fare)
@@ -217,7 +312,10 @@ function Operations({tab,rows,onReview}:{
           :tab==="safety"?<span title={text(row.note)}>{text(row.note).slice(0,90)}</span>
           :tab==="disputes"?<span title={text(row.description)}>{text(row.description).slice(0,90)}</span>
           :<span title={text(row.subjectId??row.actorId)}>{shortId(row.subjectId??row.actorId)}</span>}</td>
-        <td>{(tab==="safety"||tab==="disputes")&&row.status==="open"
+        <td>{tab==="disputes"&&["open","in_review"].includes(String(row.status))&&
+          <button className="quiet smallbutton"
+            onClick={()=>onTriage({row})}>Triage</button>}
+          {(tab==="safety"||tab==="disputes")&&row.status==="open"
           ? <button className="secondary smallbutton" onClick={()=>onReview({tab,row,next:"in_review"})}>Start review</button>
           :(tab==="safety"||tab==="disputes")&&row.status==="in_review"
           ? <div className="row-actions">
@@ -335,6 +433,7 @@ export default function App() {
   tabRef.current=tab;
   const [busy,setBusy]=useState(false);
   const [review,setReview]=useState<Review|null>(null);
+  const [triage,setTriage]=useState<Triage|null>(null);
   const [error,setError]=useState("");
   const [notice,setNotice]=useState("");
 
@@ -453,6 +552,24 @@ export default function App() {
       setError(e instanceof Error?e.message:"Server rejected the review.");
     }finally{setBusy(false);}
   }
+  async function saveTriage(
+    priority:"low"|"normal"|"high",
+    assignment:"take"|"release"|"unchanged",reason:string
+  ){
+    if(!triage||busy)return;
+    setBusy(true);setError("");setNotice("");
+    try{
+      const result=await callAdmin("triageServiceDispute",{
+        disputeId:triage.row.id,expectedStatus:triage.row.status,
+        priority,assignment,reason
+      });
+      setNotice("Support case priority updated to "+text(result.priority)+
+        ". Audit recorded; no refund or emergency dispatch occurred.");
+      setTriage(null);setRefresh(x=>x+1);
+    }catch(e){
+      setError(e instanceof Error?e.message:"Triage update rejected.");
+    }finally{setBusy(false);}
+  }
   const title=menu.find(x=>x.id===tab)?.label??"Overview";
   if(!firebaseReady)return <main className="setup-screen"><Card className="login-panel">
     <div className="logo-mark">D</div><p className="eyebrow">DRIVE / ADMINISTRATION</p>
@@ -534,7 +651,8 @@ export default function App() {
         loading?<Card><p className="muted">Loading bounded records…</p></Card>:
         queueTab(tab)?<Queue tab={tab} rows={rows} onReview={setReview}/>:
         activityTab(tab)?<>
-          <Operations tab={tab} rows={rows} onReview={setReview}/>
+          <Operations key={tab} tab={tab} rows={rows}
+            onReview={setReview} onTriage={setTriage}/>
           {activityCursor&&<div className="pagination">
             <span className="muted small">Showing {rows.length} records, newest first</span>
             <button className="secondary" disabled={loadingMore}
@@ -547,6 +665,11 @@ export default function App() {
       <footer className="workspace-footer">DRIVE CSE412 · No client-side pricing, payment,
         account-role, incident or trip-state writes. Access and changes are authorized server-side.</footer>
     </main>
+    {triage&&<TriageDialog key={triage.row.id}
+      item={triage} busy={busy}
+      onClose={()=>{if(!busy)setTriage(null);}}
+      onSubmit={(priority,assignment,reason)=>
+        void saveTriage(priority,assignment,reason)}/>}
     {review&&<ReviewDialog key={review.row.id+"_"+(review.next??String(review.approve))}
       review={review} busy={busy}
       onClose={()=>{if(!busy)setReview(null);}}
