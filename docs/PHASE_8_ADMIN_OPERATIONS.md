@@ -18,7 +18,7 @@ The admin console was already present with approvals, pricing, recent activity a
 
 The dashboard contains **12 views**: Overview, Account lookup, Driver approvals, Owner approvals, Vehicle approvals, Ride operations, Rental operations, Payment records, Safety incidents, Service disputes, Pricing controls and Audit history.
 
-The rider completed-trip checkout and renter booking history now have a **Report an issue** action connected to the trusted dispute callable. Customer support is an internal workflow; do not represent it as automatic financial reconciliation or safety dispatch.
+The rider completed-trip checkout and renter/owner booking histories now have a **Report an issue** action connected to the trusted dispute callable. Customer support is an internal workflow; do not represent it as automatic financial reconciliation or safety dispatch.
 
 ### Server APIs added or hardened
 
@@ -119,6 +119,7 @@ The driver application contains three Storage paths under applications/{uid}/. A
 - PDFs: explicit local download link for authorized review, not a permanent publicly accessible URL.
 - The reviewer does not use Firebase Storage token-bearing getDownloadURL links.
 - The browser releases each temporary blob URL when closed or unmounted.
+- **KYC file immutability (redo):** new applicant files receive unique UUID-based Storage object paths. Storage rules permit create but reject overwrite/update by any client, including an applicant, so previously reviewed evidence cannot be silently replaced. Rejected applicants upload new files on their next submission. Old files still need an explicit retention/cleanup schedule.
 - Firebase Web config must supply VITE_FIREBASE_STORAGE_BUCKET; production Storage getBlob may require bucket CORS configuration.
 - Existing upload validation caps file size. In the long-term, add malware scanning, photo redaction, document review retention and staff access logs.
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers.dart';
 import '../../../core/widgets/drive_widgets.dart';
+import '../../support/presentation/open_dispute_dialog.dart';
 import '../../../l10n/app_localizations.dart';
 
 class OwnerRentalsScreen extends ConsumerStatefulWidget {
@@ -146,6 +147,15 @@ class _OwnerRentalsScreenState extends ConsumerState<OwnerRentalsScreen> {
         Text('${t.rentalEnd}: ${formatDate(data['endAt'])}'),
         Text('${t.rentalTotal}: ৳${(total / 100).toStringAsFixed(2)}'),
         Text('${t.rentalStatus}: $status'),
+        Align(alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: () => showServiceDisputeDialog(
+              context: context, ref: ref,
+              serviceType: 'rental', serviceId: doc.id,
+            ),
+            icon: const Icon(Icons.support_agent_outlined),
+            label: const Text('Report an issue'),
+          )),
         if (canCancel)
           Align(alignment: Alignment.centerRight,
             child: TextButton.icon(

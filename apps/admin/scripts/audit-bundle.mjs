@@ -3,11 +3,12 @@ import {join} from "node:path";
 
 const build = new URL("../dist/", import.meta.url);
 if (!existsSync(build)) throw new Error("Run npm run build before bundle inspection.");
+// Firebase Web API keys are intentionally public; never treat them as
+// server secrets. We only scan known private-key and gateway patterns.
 const forbidden = [
   /sk_(?:test|live)_[A-Za-z0-9]{12,}/,
   /whsec_[A-Za-z0-9]{12,}/,
   /-----BEGIN (?:RSA |EC )?PRIVATE KEY-----/,
-  /AIza[0-9A-Za-z_-]{35}(?:[^\w-]|$)/,
   /"private_key"\s*:/,
 ];
 let checked = 0;
