@@ -40,6 +40,11 @@ void main() {
   const groovyFix = '''
 // DRIVE_FILE_PICKER_AGP9_FIX
 subprojects {
+    configurations.configureEach {
+        // Stripe's optional issuing push-provisioning SDK pulls Google's private
+        // TapAndPay Maven artifact. DRIVE uses PaymentSheet, not issuing provisioning.
+        exclude group: "com.stripe", module: "stripe-android-issuing-push-provisioning"
+    }
     if (name == "file_picker") {
         apply plugin: "org.jetbrains.kotlin.android"
         tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
@@ -53,6 +58,11 @@ subprojects {
   const kotlinFix = '''
 // DRIVE_FILE_PICKER_AGP9_FIX
 subprojects {
+    configurations.configureEach {
+        // Stripe issuing push provisioning requires a private Google TapAndPay SDK.
+        // This project uses PaymentSheet, not card issuing/provisioning.
+        exclude(group = "com.stripe", module = "stripe-android-issuing-push-provisioning")
+    }
     if (name == "file_picker") {
         pluginManager.apply("org.jetbrains.kotlin.android")
         tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
