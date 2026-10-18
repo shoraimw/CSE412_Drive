@@ -17,7 +17,7 @@ service firebase.storage {
       // New objects may be uploaded for a rejected reapplication, but an
       // existing KYC file can NEVER be overwritten by any client. The
       // application stores immutable versioned object names for its review.
-      allow create: if signedIn() && request.auth.uid == uid &&
+      allow create: if resource == null && signedIn() && request.auth.uid == uid &&
         filename.size() < 120 && validApplicationFile();
       allow update: if false;
       allow delete: if isAdmin();
