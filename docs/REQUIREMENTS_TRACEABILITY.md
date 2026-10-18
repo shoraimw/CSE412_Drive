@@ -14,8 +14,8 @@ This matrix prevents the project from being described as complete merely because
 | 4 | Smart Ride Booking | FR-06 | **Implemented in source; provider validation pending** | Test with real Google Maps/Routes keys and a real Firebase project. |
 | 5 | Smart Ride Match & Cost Sharing | FR-07–FR-08 | **Partial** | Nearby driver matching and offers exist; multi-passenger shared rides, capacity/detour rules and individual fare split remain. |
 | 6 | Real-Time Ride Tracking | FR-09 | **Partial** | Foreground live GPS flow exists; validate physical devices, Maps config and background/battery behavior. |
-| 7 | Smart Fare Prediction | FR-10 and FR-24 | **Partial** | Server-side rule-based fare quotes exist; ML fare/ETA prediction, traffic/demand inputs and evaluation remain. |
-| 8 | AI Route Optimization | FR-11 | **Partial** | Google Routes and navigation integration exist; AI/graph optimization, alternatives and refresh behavior need completion. |
+| 7 | Smart Fare Prediction | FR-10 and FR-24 | **Partial** | Server-side rule-based fare quotes exist; Phase 7 experimental private ML prediction endpoints and UI preview exist; real traffic/demand, audited models, provider validation and evaluation remain. |
+| 8 | AI Route Optimization | FR-11 | **Partial** | Google Routes and navigation integration exist; AI/graph optimization, route alternatives and refresh behavior need completion. Phase 7 ETA model is not route optimization. |
 | 9 | Multi-Currency Payment | FR-12–FR-13 | **Partial** | Cash and Stripe TEST for completed rides are implemented in source; currency conversion, supported currency selector, rental payment and complete history remain. |
 | 10 | Women Safety Mode | FR-14 | **Not implemented as a complete workflow** | Safety preferences, eligible driver preference, trusted contacts and live trip sharing. |
 | 11 | Smart Emergency & Safe Trip System | FR-15 | **Partial** | SOS incident records exist; external contact/admin delivery and automatic route-deviation/long-stop detection need integration and tests. |
@@ -32,8 +32,12 @@ This matrix prevents the project from being described as complete merely because
 | FR-21 | Driver earnings and payouts | Estimated gross from completed rides only; not net earnings, settlement or payout. |
 | FR-22 | Admin operations | Backend review/pricing capabilities exist; React admin dashboard and full operational workflows are not yet implemented. |
 | FR-23 | Admin analytics | Not implemented. |
-| FR-24 | ML and anomaly insights | Not implemented as deployed ML endpoints; planned after core requirement coverage. |
+| FR-24 | ML and anomaly insights | Phase 7 FastAPI experimental ML source, temporal training and anomaly baseline exist; no deployed, approved real-data ML models. |
 | FR-25 | Localization and accessibility | English/Bangla and themes exist; newly added rental screens include English/Bangla labels. Full accessibility review remains. |
+
+## Phase 7 scalability and DDoS hardening boundary
+
+The original PDF specifies scalability, security and performance but not a numerical million-user target. Phase 7 includes App Check integration (enforcement is deployment-gated), a private Cloud Run ML service, and an optional Cloudflare Worker for a custom API domain. The Worker is NOT deployed and direct Firebase SDK endpoints are NOT proxied through Cloudflare. Million-user load capability has not been validated. See [Phase 7 guide](PHASE_7_ML_SCALABILITY_SECURITY.md).
 
 ## Non-functional requirement gates
 
