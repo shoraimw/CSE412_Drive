@@ -1,14 +1,16 @@
-import {useEffect, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import type {FormEvent, ReactNode} from "react";
 import {
   onAuthStateChanged, signInWithEmailAndPassword, signOut, type User
 } from "firebase/auth";
 import {auth, firebaseReady} from "./firebase";
 import PrivateDocuments from "./PrivateDocuments";
+import AccountLookup from "./AccountLookup";
 import {
   menu, pendingStream, activityRows, loadOverview,
   callAdmin, activePricing, queueTab, activityTab, calendarTime,
-  type AdminRow, type Tab, type QueueTab, type OverviewData
+  type AdminRow, type Tab, type QueueTab, type OverviewData,
+  type ActivityPage
 } from "./admin_api";
 import {
   bdt, categories, demoRates, allRateFields, moneyFields,
@@ -102,7 +104,7 @@ function Overview({stats}: {stats:OverviewData|null}) {
 }
 
 type Review={
-  tab:QueueTab|"safety";
+  tab:QueueTab|"safety"|"disputes";
   row:AdminRow;
   approve?:boolean;
   next?: "in_review"|"resolved"|"dismissed";
@@ -112,23 +114,25 @@ function ReviewDialog({review,busy,onClose,onSubmit}:{
   onSubmit:(reason:string)=>void;
 }) {
   const [reason,setReason]=useState("");
-  const kind=review.tab==="safety"
-    ? "Update incident" : review.approve ? "Approve" : "Reject";
-  const subject=get(review.row,review.tab==="vehicles"?"model":"uid");
-  const valid=reason.trim().length>=10&&reason.trim().length<=400;
+  const serviceCase=review.tab==="safety"||review.tab==="disputes";
+  const kind=serviceCase
+    ? "Update case" : review.approve ? "Approve" : "Reject";
+  const subject=get(review.row,review.tab==="vehicles"?"model":
+    review.tab==="disputes"?"serviceId":"uid");
+  const valid=reason.trim().length>=(review.tab==="disputes"?20:10)&&reason.trim().length<=400;
   return <div className="modal-backdrop" role="presentation">
     <section className="dialog" role="dialog" aria-modal="true" aria-labelledby="review-heading">
       <p className="eyebrow">SERVER-AUTHORIZED DECISION</p>
-      <h2 id="review-heading">{kind} {review.tab==="safety"?"safety case":review.tab.slice(0,-1)}</h2>
+      <h2 id="review-heading">{kind} {review.tab==="safety"?"safety case":review.tab==="disputes"?"service dispute":review.tab.slice(0,-1)}</h2>
       <p className="muted">Subject: <code>{shortId(subject==="—"?review.row.id:subject)}</code></p>
-      {review.tab==="safety" ? <p>
+      {serviceCase ? <p>
         Status: <strong>{get(review.row,"status")}</strong> → <strong>{review.next}</strong>.
-        This internal action does not contact emergency services.
+        This review does not contact emergency services or process refunds.
       </p> : <p>
         A decision will update the server-owned record; permissions are checked
         again by Cloud Functions before anything is committed.
       </p>}
-      <label htmlFor="review-reason">Review rationale (10–400 characters)</label>
+      <label htmlFor="review-reason">Review rationale ({review.tab==="disputes"?"20":"10"}–400 characters)</label>
       <textarea id="review-reason" rows={4} maxLength={400}
         autoFocus value={reason} onChange={e=>setReason(e.target.value)}
         placeholder="Write a factual reason that can be audited."/>
@@ -170,7 +174,7 @@ function Queue({tab,rows,onReview}:{
 }
 
 function Operations({tab,rows,onReview}:{
-  tab:"rides"|"rentals"|"payments"|"safety"|"audit";
+  tab:"rides"|"rentals"|"payments"|"safety"|"disputes"|"audit";
   rows:AdminRow[];
   onReview:(r:Review)=>void;
 }) {
@@ -181,6 +185,7 @@ function Operations({tab,rows,onReview}:{
     rentals:{heading:"Recent rental bookings",description:"Read-only rental availability and price records."},
     payments:{heading:"Payment record inspection",description:"Stripe TEST is not live revenue; cash reports are unverified."},
     safety:{heading:"Safety case triage",description:"Internal statuses only; no contacts or emergency dispatch are notified."},
+    disputes:{heading:"Service dispute review",description:"Reporter-authored ride/rental cases. No payment refunds are processed here."},
     audit:{heading:"Immutable operational trail",description:"Backend-originated approvals, pricing and incident decisions."},
   };
   return <Card>
@@ -197,16 +202,18 @@ function Operations({tab,rows,onReview}:{
           :tab==="rentals"?<span title={text(row.vehicleId)}>Vehicle {shortId(row.vehicleId)}</span>
           :tab==="payments"?text(row.method)
           :tab==="safety"?text(row.type)
+          :tab==="disputes"?text(row.serviceType)+" · "+text(row.topic)
           :text(row.type)}</td>
         <td><Pill value={tab==="audit"? "logged": row.status??"recorded"}/></td>
         <td>{tab==="rides"?currencyFromFare(row.finalFare??row.fare)
           :tab==="rentals"?bdt(row.totalMinor)
           :tab==="payments"?bdt(row.amountMinor)
           :tab==="safety"?<span title={text(row.note)}>{text(row.note).slice(0,90)}</span>
+          :tab==="disputes"?<span title={text(row.description)}>{text(row.description).slice(0,90)}</span>
           :<span title={text(row.subjectId??row.actorId)}>{shortId(row.subjectId??row.actorId)}</span>}</td>
-        <td>{tab==="safety"&&row.status==="open"
+        <td>{(tab==="safety"||tab==="disputes")&&row.status==="open"
           ? <button className="secondary smallbutton" onClick={()=>onReview({tab,row,next:"in_review"})}>Start review</button>
-          :tab==="safety"&&row.status==="in_review"
+          :(tab==="safety"||tab==="disputes")&&row.status==="in_review"
           ? <div className="row-actions">
             <button className="secondary smallbutton" onClick={()=>onReview({tab,row,next:"resolved"})}>Resolve</button>
             <button className="quiet smallbutton" onClick={()=>onReview({tab,row,next:"dismissed"})}>Dismiss</button>
@@ -214,8 +221,8 @@ function Operations({tab,rows,onReview}:{
           :<span className="muted small">Read-only</span>}</td>
       </tr>)}</tbody></table></div>}
     <p className="sample-note">
-      Bounded to 60 newest records. Use a backend reporting pipeline and cursor-based
-      pagination for complete history; browser-side lists are not platform totals.
+      Records are cursor-paginated from newest to oldest. This browser is not
+      a complete platform analytics warehouse.
     </p>
   </Card>;
 }
@@ -316,6 +323,10 @@ export default function App() {
   const [overview,setOverview]=useState<OverviewData|null>(null);
   const [loading,setLoading]=useState(false);
   const [refresh,setRefresh]=useState(0);
+  const [activityCursor,setActivityCursor]=useState<ActivityPage["cursor"]>(null);
+  const [loadingMore,setLoadingMore]=useState(false);
+  const tabRef=useRef(tab);
+  tabRef.current=tab;
   const [busy,setBusy]=useState(false);
   const [review,setReview]=useState<Review|null>(null);
   const [error,setError]=useState("");
@@ -348,7 +359,8 @@ export default function App() {
   useEffect(()=>{
     if(!admin||!user)return;
     let alive=true;
-    setRows([]);setLoading(true);setError("");
+    setRows([]);setActivityCursor(null);setLoadingMore(false);
+    setLoading(true);setError("");
     if(queueTab(tab)){
       return pendingStream(tab,
         result=>{if(alive){setRows(result);setLoading(false);}},
@@ -356,7 +368,10 @@ export default function App() {
     }
     if(activityTab(tab)){
       void activityRows(tab).then(result=>{
-        if(alive){setRows(result);setLoading(false);}
+        if(alive){
+          setRows(result.rows);setActivityCursor(result.cursor);
+          setLoading(false);
+        }
       }).catch(e=>{
         if(alive){setError(e instanceof Error?e.message:"Load failed.");setLoading(false);}
       });
@@ -370,6 +385,23 @@ export default function App() {
     }else setLoading(false);
     return ()=>{alive=false;};
   },[tab,admin,user,refresh]);
+
+  async function older(){
+    if(!activityTab(tab)||!activityCursor||loadingMore)return;
+    const requestedTab=tab;
+    setLoadingMore(true);setError("");
+    try{
+      const page=await activityRows(tab,activityCursor);
+      if(tabRef.current===requestedTab){
+        setRows(previous=>[...previous,...page.rows]);
+        setActivityCursor(page.cursor);
+      }
+    }catch(e){
+      if(tabRef.current===requestedTab){
+        setError(e instanceof Error?e.message:"Older records unavailable.");
+      }
+    }finally{if(tabRef.current===requestedTab)setLoadingMore(false);}
+  }
 
   async function login(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();setError("");setNotice("");
@@ -393,7 +425,11 @@ export default function App() {
     try{
       let fn:string;
       let payload:Record<string,unknown>;
-      if(item.tab==="safety"){
+      if(item.tab==="disputes"){
+        fn="reviewServiceDispute";
+        payload={disputeId:item.row.id,expectedStatus:item.row.status,
+          nextStatus:item.next,note:reason};
+      }else if(item.tab==="safety"){
         fn="reviewSafetyIncident";
         payload={incidentId:item.row.id,expectedStatus:item.row.status,
           nextStatus:item.next,note:reason};
@@ -405,7 +441,7 @@ export default function App() {
         payload={uid:item.row.id,approve:item.approve,reason};
       }
       const result=await callAdmin(fn,payload);
-      setNotice("Server confirmed "+text(result.status)+". Audit trail recorded where supported.");
+      setNotice("Server confirmed "+text(result.status)+". Decision is audited; no funds or emergency alerts were sent.");
       setReview(null);setRefresh(x=>x+1);
     }catch(e){
       setError(e instanceof Error?e.message:"Server rejected the review.");
@@ -451,8 +487,8 @@ export default function App() {
             aria-current={tab===item.id?"page":undefined}
             onClick={()=>{setTab(item.id);setNotice("");setError("");}}>
             <span className="nav-symbol" aria-hidden="true">{({
-              overview:"▦",drivers:"◎",owners:"♙",vehicles:"◇",
-              rides:"↗",rentals:"▣",payments:"৳",safety:"◈",pricing:"⌁",audit:"≡",
+              overview:"▦",users:"◉",drivers:"◎",owners:"♙",vehicles:"◇",
+              rides:"↗",rentals:"▣",payments:"৳",safety:"◈",disputes:"▤",pricing:"⌁",audit:"≡",
             } as Record<Tab,string>)[item.id]}</span>
             <span>{item.label}</span>
           </button>
@@ -468,8 +504,10 @@ export default function App() {
         <div><p className="eyebrow">DRIVE / COMMAND CENTER</p>
           <h1>{title}</h1><p className="muted">
             {tab==="overview"?"Recent operational activity and system status."
+              :tab==="users"?"Exact identity lookup through the trusted backend."
               :tab==="pricing"?"Audited and server-enforced fare management."
               :tab==="safety"?"Review-only case management; emergency delivery is not active."
+              :tab==="disputes"?"Case resolution is not a financial settlement or refund."
               :"Role-gated operations, protected by Firebase rules."}
           </p></div>
         <div className="header-controls">
@@ -483,10 +521,20 @@ export default function App() {
       {error&&<div className="alert error" role="alert">{error}</div>}
       {notice&&<div className="alert success" role="status">{notice}</div>}
       {tab==="pricing"?<Pricing/>:
+        tab==="users"?<AccountLookup/>:
         tab==="overview"?<Overview stats={overview}/>:
         loading?<Card><p className="muted">Loading bounded records…</p></Card>:
         queueTab(tab)?<Queue tab={tab} rows={rows} onReview={setReview}/>:
-        activityTab(tab)?<Operations tab={tab} rows={rows} onReview={setReview}/>:
+        activityTab(tab)?<>
+          <Operations tab={tab} rows={rows} onReview={setReview}/>
+          {activityCursor&&<div className="pagination">
+            <span className="muted small">Showing {rows.length} records, newest first</span>
+            <button className="secondary" disabled={loadingMore}
+              onClick={()=>void older()}>
+              {loadingMore?"Loading older records…":"Load older records"}
+            </button>
+          </div>}
+        </>:
         null}
       <footer className="workspace-footer">DRIVE CSE412 · No client-side pricing, payment,
         account-role, incident or trip-state writes. Access and changes are authorized server-side.</footer>
