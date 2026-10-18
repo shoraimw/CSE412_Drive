@@ -109,6 +109,22 @@ async def fare(body: InferenceRequest):
 async def demand(body: InferenceRequest):
     return predict("requests_next_hour", body.features, "requests_per_hour_cell")
 
+@app.post("/v1/predict/all")
+async def all_predictions(body: InferenceRequest):
+    return {
+        "eta": predict("eta_minutes", body.features, "minutes").model_dump(),
+        "historical_fare": predict(
+            "observed_fare_minor", body.features,
+            "BDT_minor_advisory"
+        ).model_dump(),
+        "demand": predict(
+            "requests_next_hour", body.features,
+            "requests_per_hour_cell"
+        ).model_dump(),
+        "authoritative_fare": False,
+    }
+
+
 class AnomalyInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     route_distance_km: float = Field(ge=0.1, le=150)

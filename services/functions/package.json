@@ -19,7 +19,8 @@
     "firebase-functions": "^7.3.0",
     "geofire-common": "^6.0.0",
     "zod": "^3.24.0",
-    "stripe": "^18.5.0"
+    "stripe": "^18.5.0",
+    "google-auth-library": "^9.15.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

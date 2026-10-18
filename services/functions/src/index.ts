@@ -3,6 +3,7 @@ export {
   sendRideMessage, rateCompletedRide, registerPushToken, unregisterPushToken,
   onDriverOfferCreated, onRideStatusChanged, onRideMessageCreated, deliverPushNotification
 } from "./engagement";
+export {getMlTripInsights} from "./ml_proxy";
 export {
   chooseCashForRide, reportCashReceived,
   prepareStripeTestCheckout, stripeTestWebhook
