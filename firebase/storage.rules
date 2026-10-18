@@ -5,7 +5,7 @@ service firebase.storage {
       return request.auth != null;
     }
     function isAdmin() {
-      return signedIn() && request.auth.token.admin == true;
+      return signedIn() && ('admin' in request.auth.token) && request.auth.token.admin == true;
     }
     function validApplicationFile() {
       return request.resource.size > 0 &&

@@ -1,4 +1,5 @@
-import {test, after} from "node:test";
+import {test, before, after} from "node:test";
+import {readFileSync} from "node:fs";
 import assert from "node:assert/strict";
 import {createRequire} from "node:module";
 
@@ -17,6 +18,33 @@ if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_
 }
 if (!getApps().length) initializeApp({projectId,
   databaseURL: "https://" + projectId + "-default-rtdb.firebaseio.com"});
+// The Database emulator may start its default namespace with empty rules when
+// a named -default-rtdb instance is first accessed. Seed the EXACT checked-in
+// security rules in that test-only namespace; never relax the production rules.
+before(async () => {
+  const rules = JSON.parse(readFileSync("firebase/database.rules.json", "utf8"));
+  assert.ok(rules.rules?.driverLocations?.[".indexOn"]?.includes("geohash"),
+    "The checked-in RTDB rules must contain the dispatch geohash index.");
+  const namespace = projectId + "-default-rtdb";
+  const endpoint = "http://127.0.0.1:9000/.settings/rules.json?ns=" +
+    encodeURIComponent(namespace);
+  const result = await fetch(endpoint, {
+    method: "PUT",
+    headers: {"Content-Type": "application/json", Authorization: "Bearer owner"},
+    body: JSON.stringify(rules), signal: AbortSignal.timeout(25000)
+  });
+  assert.equal(result.ok, true,
+    "Could not seed checked-in RTDB security rules in test namespace: " +
+    result.status + " " + await result.text());
+  const saved = await fetch(endpoint, {
+    headers: {Authorization: "Bearer owner"},
+    signal: AbortSignal.timeout(25000)
+  });
+  assert.equal(saved.ok, true, "Cannot verify RTDB emulator rules.");
+  const active = await saved.json();
+  assert.ok(active.rules?.driverLocations?.[".indexOn"]?.includes("geohash"),
+    "Dispatch index not active in the Functions emulator RTDB namespace.");
+});
 async function identity(method, email) {
   const response = await fetch(authEndpoint + method + "?key=demo-key", {
     method: "POST", headers: {"Content-Type": "application/json"},
