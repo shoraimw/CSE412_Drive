@@ -98,7 +98,8 @@ service cloud.firestore {
     }
     match /payments/{paymentId} {
       allow get, list: if isAdmin() ||
-        (signedIn() && resource.data.payerId == request.auth.uid);
+        (signedIn() && (resource.data.payerId == request.auth.uid ||
+         resource.data.driverId == request.auth.uid));
       allow write: if false;
     }
     match /safetyIncidents/{incidentId} {

@@ -5,7 +5,7 @@ import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {onDocumentCreated, onDocumentUpdated} from "firebase-functions/v2/firestore";
 import {z} from "zod";
 
-const db = getFirestore();
+function db() { return getFirestore(); }
 const region = "asia-south1";
 const callOptions = {region, maxInstances: 10};
 const rideIdSchema = z.string().min(8).max(128);
@@ -44,9 +44,9 @@ export const sendRideMessage = onCall(callOptions, async request => {
     text: textSchema,
     clientMessageId: z.string().uuid()
   }).strict(), request.data);
-  const rideRef = db.doc("rides/" + input.rideId);
+  const rideRef = db().doc("rides/" + input.rideId);
   const msgRef = rideRef.collection("messages").doc(uid + "_" + input.clientMessageId);
-  await db.runTransaction(async tx => {
+  await db().runTransaction(async tx => {
     const [ride, previous] = await Promise.all([tx.get(rideRef), tx.get(msgRef)]);
     const info = requireRide(ride, uid);
     if (!allowedStatuses.has(info.status)) {
@@ -75,9 +75,9 @@ export const rateCompletedRide = onCall(callOptions, async request => {
     stars: z.number().int().min(1).max(5),
     comment: z.string().trim().max(500).default("")
   }).strict(), request.data);
-  const rideRef = db.doc("rides/" + input.rideId);
-  const ratingRef = db.doc("ratings/" + input.rideId + "_" + uid);
-  await db.runTransaction(async tx => {
+  const rideRef = db().doc("rides/" + input.rideId);
+  const ratingRef = db().doc("ratings/" + input.rideId + "_" + uid);
+  await db().runTransaction(async tx => {
     const [ride, prior] = await Promise.all([tx.get(rideRef), tx.get(ratingRef)]);
     const info = requireRide(ride, uid);
     if (info.status !== "completed") {
@@ -104,7 +104,7 @@ export const registerPushToken = onCall(callOptions, async request => {
     platform: z.enum(["android", "ios"])
   }).strict(), request.data);
   const fingerprint = createHash("sha256").update(input.token).digest("hex");
-  await db.doc("pushTokens/" + uid + "/tokens/" + fingerprint).set({
+  await db().doc("pushTokens/" + uid + "/tokens/" + fingerprint).set({
     token: input.token, platform: input.platform,
     updatedAt: FieldValue.serverTimestamp()
   }, {merge: true});
@@ -117,7 +117,7 @@ export const unregisterPushToken = onCall(callOptions, async request => {
     token: z.string().trim().min(30).max(4096)
   }).strict(), request.data);
   const fingerprint = createHash("sha256").update(input.token).digest("hex");
-  await db.doc("pushTokens/" + uid + "/tokens/" + fingerprint).delete();
+  await db().doc("pushTokens/" + uid + "/tokens/" + fingerprint).delete();
   return {unregistered: true};
 });
 
@@ -126,7 +126,7 @@ async function enqueue(uid: string, type: string, title: string,
   const fingerprint = dedupe ||
     createHash("sha256").update(uid + "|" + type + "|" + (rideId || "") + "|" + body)
       .digest("hex").slice(0, 36);
-  await db.doc("notifications/" + fingerprint).create({
+  await db().doc("notifications/" + fingerprint).create({
     uid, type, title, body, rideId: rideId || null,
     pushStatus: "pending", createdAt: FieldValue.serverTimestamp()
   }).catch(e => {
@@ -186,7 +186,7 @@ export const deliverPushNotification = onDocumentCreated(
       await doc.ref.update({pushStatus: "emulator_not_sent"});
       return;
     }
-    const tokens = await db.collection("pushTokens").doc(data.uid)
+    const tokens = await db().collection("pushTokens").doc(data.uid)
       .collection("tokens").limit(100).get();
     if (tokens.empty) {
       await doc.ref.update({pushStatus: "no_registered_device"});

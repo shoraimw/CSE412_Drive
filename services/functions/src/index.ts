@@ -1,3 +1,13 @@
+// Phase 6 server-controlled payments, messaging, ratings and notifications.
+export {
+  sendRideMessage, rateCompletedRide, registerPushToken, unregisterPushToken,
+  onDriverOfferCreated, onRideStatusChanged, onRideMessageCreated, deliverPushNotification
+} from "./engagement";
+export {
+  chooseCashForRide, reportCashReceived,
+  prepareStripeTestPayment, stripeTestWebhook
+} from "./payments";
+
 import {initializeApp} from "firebase-admin/app";
 import {getAuth} from "firebase-admin/auth";
 import {getDatabase} from "firebase-admin/database";
