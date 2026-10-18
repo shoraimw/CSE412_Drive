@@ -67,12 +67,13 @@ class _DriverScreenState extends ConsumerState<DriverScreen>
   void didUpdateWidget(covariant DriverScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.profile['online'] == true &&
-        gpsSubscription == null && !trackingBusy) {
+        gpsSubscription == null && !trackingBusy && !busy) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_beginTracking());
       });
     }
-    if (widget.profile['online'] != true && gpsSubscription != null) {
+    if (widget.profile['online'] != true &&
+        gpsSubscription != null && !busy) {
       unawaited(_endTracking());
     }
   }

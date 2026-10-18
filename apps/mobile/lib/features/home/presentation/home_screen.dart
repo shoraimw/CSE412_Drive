@@ -51,6 +51,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _AccountPanel(
         user: widget.user, profile: widget.profile,
         driverStatus: driverData?['approvalStatus']?.toString(),
+        driverIsOnline: driverData?['online'] == true,
         ownerStatus: ownerData?['approvalStatus']?.toString(),
       ),
     ];
@@ -137,11 +138,13 @@ class _OwnerPanel extends ConsumerWidget {
 class _AccountPanel extends ConsumerWidget {
   const _AccountPanel({
     required this.user, required this.profile,
-    required this.driverStatus, required this.ownerStatus,
+    required this.driverStatus, required this.driverIsOnline,
+    required this.ownerStatus,
   });
   final User user;
   final Map<String, dynamic> profile;
   final String? driverStatus;
+  final bool driverIsOnline;
   final String? ownerStatus;
 
   @override
@@ -212,7 +215,18 @@ class _AccountPanel extends ConsumerWidget {
       ),
       const SizedBox(height: 30),
       OutlinedButton.icon(
-        onPressed: () => ref.read(authRepositoryProvider).logout(),
+        onPressed: () async {
+          try {
+            if (driverIsOnline) {
+              await ref.read(functionsProvider)
+                  .httpsCallable('setDriverAvailability')
+                  .call({'online': false});
+            }
+            await ref.read(authRepositoryProvider).logout();
+          } catch (error) {
+            if (context.mounted) showDriveError(context, error);
+          }
+        },
         icon: const Icon(Icons.logout_outlined), label: Text(t.signOut),
       ),
     ]);
