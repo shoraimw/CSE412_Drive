@@ -111,3 +111,9 @@ node --test tests/qa/*.test.mjs
 The [22-case QA checklist](PHASE_9_ACCEPTANCE_TEST_PLAN.md) and [blank release sign-off form](PHASE_9_RELEASE_SIGNOFF.md) are ready. GitHub [issue #3](https://github.com/shoraimw/CSE412_Drive/issues/3) tracks all cloud-account / real-device / App Check / WAF / rollback prerequisites. **These cannot be marked PASS without an actual staged deployment, named tester and evidence.**
 
 **Current phase outcome:** CI/source-complete, external acceptance **BLOCKED**. The Phase 10 [final report](PHASE_10_FINAL_REPORT.md), [presentation](PHASE_10_PRESENTATION.md) and [demo/viva](PHASE_10_DEMO_VIVA.md) are being prepared as an honest academic handoff, not a production release certificate.
+
+## 10. Verified Android artifact and source-only closure
+
+[CI run #39130983258](https://github.com/shoraimw/CSE412_Drive/actions/runs/39130983258) completed successfully on commit `0fcbd246588faab339758166cdd89c4352c4eae9` with seven successful jobs (admin, mobile, backend, ML, Cloudflare edge, repo safety and gate). Its mobile job generated the `drive-phase9-emulator-demo-apk` artifact, approximately 28.2 MB, with GitHub's 14-day artifact retention (expires **1 November 2026**). The build uses `--dart-define=DRIVE_EMULATOR=true` and is NOT production-configured or externally deployed.
+
+**Verified Phase 9 source/CI scope: COMPLETE. Real deployment/UAT/rollback/security acceptance: BLOCKED/NOT RUN.** See [project release status](PROJECT_RELEASE_STATUS.md), [manual QA test plan](PHASE_9_ACCEPTANCE_TEST_PLAN.md), and [issue #3](https://github.com/shoraimw/CSE412_Drive/issues/3). Do not check staging acceptance boxes without evidence.

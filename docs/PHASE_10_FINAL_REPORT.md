@@ -205,3 +205,8 @@ DRIVE demonstrates a credible multi-role ride-hailing and rental software archit
 **Supervisor/instructor:** [ADD VERIFIED NAME]  
 **Final submission date:** [ADD DATE]  
 **Staging test evidence (if actually executed):** [ADD URLs OR LABEL BLOCKED]
+
+
+## Final build evidence update
+
+On 18 October 2026, [Phase 9 Actions run 39130983258](https://github.com/shoraimw/CSE412_Drive/actions/runs/39130983258) successfully built an emulator-only Android release APK artifact on commit `0fcbd246`. This verifies build/packaging, **not** a working two-device/real Firebase rollout. The `docs/PROJECT_RELEASE_STATUS.md` register is the latest source of truth on pending Phase 9 and unimplemented requirements.

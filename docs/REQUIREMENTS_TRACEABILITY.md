@@ -10,7 +10,7 @@ This matrix prevents the project from being described as complete merely because
 |---:|---|---|---|---|
 | 1 | Authentication & Security | FR-01 | **Implemented baseline / partial hardening** | Validate real Firebase configuration and device OTP/OAuth; suspicious-account detection and security review remain. |
 | 2 | User Management | FR-02–FR-04 | **Partial** | Phase 8 adds exact audited account lookup and driver/owner/vehicle approvals. Account suspension and staffed moderation, owner listing editing and listing-photo verification remain. |
-| 3 | Vehicle Rental | FR-05 | **Renter/owner UI, backend and admin approval source implemented; validation pending** | Run latest emulator tests, configure admin Firebase Web app, and smoke-test rental flows; rental payments remain in payment requirements. |
+| 3 | Vehicle Rental | FR-05 | **Source + Firebase emulator integration PASS; real staging/device validation pending** | Emulator scenario passed in GitHub Actions; configure admin Firebase staging Web app and run real-device rental acceptance; rental payments remain in payment requirements. |
 | 4 | Smart Ride Booking | FR-06 | **Implemented in source; provider validation pending** | Test with real Google Maps/Routes keys and a real Firebase project. |
 | 5 | Smart Ride Match & Cost Sharing | FR-07–FR-08 | **Partial** | Nearby driver matching and offers exist; multi-passenger shared rides, capacity/detour rules and individual fare split remain. |
 | 6 | Real-Time Ride Tracking | FR-09 | **Partial** | Foreground live GPS flow exists; validate physical devices, Maps config and background/battery behavior. |
@@ -60,10 +60,10 @@ The original PDF specifies scalability, security and performance but not a numer
 - [x] Owner can view bookings and cancel a future reservation.
 - [x] Public listings do not expose registration/plate data.
 - [x] React admin dashboard UI approves/rejects pending vehicle listings through server callable (CI and real-project smoke test still required).
-- [ ] Firebase emulator integration tests for renter booking/cancellation pass on the latest commit.
+- [x] Firebase emulator integration tests for renter booking/cancellation passed — [Phase 9 CI run #39130983258](https://github.com/shoraimw/CSE412_Drive/actions/runs/39130983258).
 - [ ] Real Firebase configuration and end-to-end device smoke test pass.
 
-**Current work order:** finish/validate Vehicle Rental; then proceed through ride booking, shared ride/cost sharing, tracking, fare, route optimization, multi-currency payments, women safety, emergency/safe-trip, and Tourist Mode. Revisit every partial cross-cutting requirement before final release.
+**Current work order:** Stage and physically validate the implemented rental and ride workflows before release; the separate unfinished PDF features (shared rides/cost splitting, full safety flows, Tourist Mode, multi-currency settlement, etc.) require implementation or a documented faculty-approved reduced academic demo scope. A passing unit/emulator suite does not mark these features complete.
 
 ## Phase 8 Admin Operations
 

@@ -5,7 +5,7 @@
 | Field | Fill after real test |
 |---|---|
 | Target git commit SHA | NOT ENTERED |
-| CI URL / conclusion | See previous CI baseline: https://github.com/shoraimw/CSE412_Drive/actions/runs/39129534777 (passed only on its original SHA) |
+| CI URL / conclusion | Latest verified source CI: https://github.com/shoraimw/CSE412_Drive/actions/runs/39130983258 (successful on commit 0fcbd246 only; new commits require new CI) |
 | Staging Firebase project ID | NOT CONFIGURED |
 | Admin Hosting URL | NOT DEPLOYED |
 | Staging release Actions URL | NONE |
