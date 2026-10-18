@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/drive_widgets.dart';
 import '../../../core/providers.dart';
-import '../data/trip_services_repository.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key, required this.uid});
@@ -25,9 +24,11 @@ class _NotificationState extends ConsumerState<NotificationsScreen> {
     body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: stream,
       builder: (context, snapshot) {
-        if (snapshot.hasError) return DriveErrorView(
-          message: snapshot.error.toString(),
-          onRetry: () => setState(() {}), retryLabel: 'Retry');
+        if (snapshot.hasError) {
+          return DriveErrorView(
+            message: snapshot.error.toString(),
+            onRetry: () => setState(() {}), retryLabel: 'Retry');
+        }
         if (!snapshot.hasData) {
           return const DriveLoading();
         }

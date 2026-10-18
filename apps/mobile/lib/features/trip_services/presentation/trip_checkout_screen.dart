@@ -54,9 +54,11 @@ class _CheckoutState extends ConsumerState<TripCheckoutScreen> {
       body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         stream: rideStream,
         builder: (context, trip) {
-          if (trip.hasError) return DriveErrorView(
-            message: trip.error.toString(),
-            onRetry: () => setState(() {}), retryLabel: 'Retry');
+          if (trip.hasError) {
+            return DriveErrorView(
+              message: trip.error.toString(),
+              onRetry: () => setState(() {}), retryLabel: 'Retry');
+          }
           if (!trip.hasData) {
             return const DriveLoading();
           }
