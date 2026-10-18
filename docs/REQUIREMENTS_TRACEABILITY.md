@@ -10,7 +10,7 @@ This matrix prevents the project from being described as complete merely because
 |---:|---|---|---|---|
 | 1 | Authentication & Security | FR-01 | **Implemented baseline / partial hardening** | Validate real Firebase configuration and device OTP/OAuth; suspicious-account detection and security review remain. |
 | 2 | User Management | FR-02–FR-04 | **Partial** | Complete profile/role/admin tools; owner listing editing/photos and full admin approval UI. |
-| 3 | Vehicle Rental | FR-05 | **UI and backend source implemented; integration validation pending** | Run emulator tests; add admin vehicle approval UI; rental payments are part of payment requirements. |
+| 3 | Vehicle Rental | FR-05 | **Renter/owner UI, backend and admin approval source implemented; validation pending** | Run latest emulator tests, configure admin Firebase Web app, and smoke-test rental flows; rental payments remain in payment requirements. |
 | 4 | Smart Ride Booking | FR-06 | **Implemented in source; provider validation pending** | Test with real Google Maps/Routes keys and a real Firebase project. |
 | 5 | Smart Ride Match & Cost Sharing | FR-07–FR-08 | **Partial** | Nearby driver matching and offers exist; multi-passenger shared rides, capacity/detour rules and individual fare split remain. |
 | 6 | Real-Time Ride Tracking | FR-09 | **Partial** | Foreground live GPS flow exists; validate physical devices, Maps config and background/battery behavior. |
@@ -55,7 +55,7 @@ This matrix prevents the project from being described as complete merely because
 - [x] Approved owner can submit a car/bike/premium listing and see its approval status.
 - [x] Owner can view bookings and cancel a future reservation.
 - [x] Public listings do not expose registration/plate data.
-- [ ] Admin dashboard UI approves/rejects pending vehicle listings.
+- [x] React admin dashboard UI approves/rejects pending vehicle listings through server callable (CI and real-project smoke test still required).
 - [ ] Firebase emulator integration tests for renter booking/cancellation pass on the latest commit.
 - [ ] Real Firebase configuration and end-to-end device smoke test pass.
 

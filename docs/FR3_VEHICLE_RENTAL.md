@@ -29,7 +29,7 @@ This feature is being implemented requirement-by-requirement. It uses the existi
 - Backend policy currently permits a start within the next 90 days and a rental duration of up to 72 hours.
 - Registration/plate data is stored in the private vehicle collection and is not included in public vehicle documents.
 - Cancellation is allowed only while a booking is confirmed and has not started.
-- Listings remain hidden until admin approval. The React admin approval UI is a tracked remaining requirement, so test data must be approved through an authorized admin workflow before public browsing can return vehicles.
+- Listings remain hidden until admin approval. A React/Vite admin screen now lists pending vehicles and calls the existing `reviewRentalVehicle` callable. Access requires a server-assigned `admin: true` custom claim; the callable independently enforces this claim.
 - Rental payment is not included in this feature yet; the multi-currency/payment requirement must later extend payment support to rentals.
 
 ## Source files
@@ -45,6 +45,20 @@ services/functions/src/index.ts
 firebase/firestore.rules
 firebase/firestore.indexes.json
 ~~~
+
+## Admin dashboard setup (FR-03)
+
+From PowerShell:
+
+~~~powershell
+cd CSE412_Drive\apps\admin
+npm install
+Copy-Item .env.example .env.local
+# Edit .env.local with your Firebase Web app values; never put service-account or Stripe secret keys here.
+npm run dev
+~~~
+
+Open the local Vite URL printed in the terminal. Sign in with an administrator account that has the server-assigned `admin: true` custom claim. The page loads pending vehicle listings and uses `reviewRentalVehicle` to approve/reject them; browser clients cannot write approval fields directly. A configured Firebase project and an authorized admin account are required; no admin credentials are included in the repository.
 
 ## Windows smoke-test setup
 

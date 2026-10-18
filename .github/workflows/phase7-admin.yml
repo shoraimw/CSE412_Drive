@@ -1,0 +1,26 @@
+name: Phase 7 Admin dashboard checks
+on:
+  push:
+    paths:
+      - "apps/admin/**"
+      - ".github/workflows/phase7-admin.yml"
+  pull_request:
+    paths:
+      - "apps/admin/**"
+      - ".github/workflows/phase7-admin.yml"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/admin/package.json
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
