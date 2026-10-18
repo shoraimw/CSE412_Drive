@@ -26,3 +26,7 @@ flutter run --dart-define=DRIVE_EMULATOR=true
 ~~~
 
 Launch Firebase emulators from the repository root before running the app. Use the provided [Phase 2 backend guide](../../docs/PHASE_2_FIREBASE.md) to start/seed the backend. For a real Firebase project, follow `docs/PHASE_3_FLUTTER.md` for `--dart-define-from-file` and native Google OAuth configuration. Do **not** commit real local config files.
+
+## Phase 5 driver workflows
+
+The driver GPS, expiring offer, trip navigation, completion and estimated-gross dashboards are documented in [Phase 5](../../docs/PHASE_5_DRIVER.md). After flutter create, run the foreground location permission script: dart run tool/configure_driver_permissions.dart.

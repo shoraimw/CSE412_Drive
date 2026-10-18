@@ -31,6 +31,7 @@ The specification is based on the team's Fall 2026 Requirement Analysis and the 
 - [Phase 2: Firebase backend, setup, callable API contracts, and emulator tests](docs/PHASE_2_FIREBASE.md)
 - [Phase 3: Flutter foundation, authentication, role-aware mobile app](docs/PHASE_3_FLUTTER.md)
 - [Phase 4: Rider maps, route quotes, booking and tracking](docs/PHASE_4_RIDER.md)
+- [Phase 5: Driver GPS, offers, navigation and estimated gross](docs/PHASE_5_DRIVER.md)
 
 ## Important implementation boundary
 
