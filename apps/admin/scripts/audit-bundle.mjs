@@ -1,7 +1,8 @@
 import {existsSync, readdirSync, readFileSync, statSync} from "node:fs";
 import {join} from "node:path";
+import {fileURLToPath} from "node:url";
 
-const build = new URL("../dist/", import.meta.url);
+const build = fileURLToPath(new URL("../dist/", import.meta.url));
 if (!existsSync(build)) throw new Error("Run npm run build before bundle inspection.");
 // Firebase Web API keys are intentionally public; never treat them as
 // server secrets. We only scan known private-key and gateway patterns.
@@ -26,6 +27,6 @@ function inspect(dir) {
     checked++;
   }
 }
-inspect(build.pathname);
+inspect(build);
 if(checked===0)throw new Error("No deployable web assets found.");
 console.log("Admin public bundle audit passed for",checked,"asset(s).");
