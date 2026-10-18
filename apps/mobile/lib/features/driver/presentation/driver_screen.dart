@@ -11,6 +11,8 @@ import '../../../core/widgets/drive_widgets.dart';
 import '../../../l10n/app_localizations.dart';
 import '../data/driver_repository.dart';
 import '../domain/driver_earnings.dart';
+import '../../trip_services/presentation/trip_chat_screen.dart';
+import '../../trip_services/presentation/trip_checkout_screen.dart';
 
 final driverRepositoryProvider = Provider<DriverRepository>((ref) {
   return DriverRepository(
@@ -363,6 +365,20 @@ class _DriverScreenState extends ConsumerState<DriverScreen>
             const SizedBox(height: 8),
             Text('${gross.tripCount} ${t.driverFinished}',
               style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 18),
+            Text('Completed trip payments and ratings',
+              style: Theme.of(context).textTheme.titleLarge),
+            for (final trip in rides.where((r) =>
+                r.data()['status'] == 'completed').take(10))
+              Card(child: ListTile(
+                leading: const Icon(Icons.receipt_long_outlined),
+                title: Text('Trip ${trip.id.substring(0, 8)}'),
+                subtitle: const Text('Payment status, cash reporting and review'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => TripCheckoutScreen(rideId: trip.id),
+                )),
+              )),
           ],
         );
       },
@@ -453,6 +469,13 @@ class _DriverScreenState extends ConsumerState<DriverScreen>
             label: Text(t.driverNavigateDestination),
           ),
           const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => TripChatScreen(rideId: doc.id),
+            )),
+            icon: const Icon(Icons.chat_outlined),
+            label: const Text('Chat with rider'),
+          ),
           if (next != null) FilledButton(
             onPressed: busy ? null : () => _changeRide(doc.id, next),
             child: Text(action),

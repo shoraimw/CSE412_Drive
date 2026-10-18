@@ -177,12 +177,18 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
             onFinished: () => setState(() {bookingRide = null; quote = null;}),
           );
         }
-        return _bookRideForm();
+        final history = snapshot.data!
+            .where((ride) => ride.data()['status'] == 'completed')
+            .take(8).toList();
+        return _bookRideForm(history, repo);
       },
     );
   }
 
-  Widget _bookRideForm() {
+  Widget _bookRideForm(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> history,
+    RiderRepository repo,
+  ) {
     final theme = Theme.of(context);
     return LayoutBuilder(builder: (context, constraints) {
       return ListView(children: [
@@ -295,6 +301,28 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                   ),
                 )),
               ],
+            ],
+          ),
+        ),
+        if (history.isNotEmpty) Padding(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 26),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Completed trips', style: theme.textTheme.titleLarge),
+              const SizedBox(height: 8),
+              for (final ride in history)
+                Card(child: ListTile(
+                  leading: const Icon(Icons.receipt_long_outlined),
+                  title: Text('Trip ${ride.id.substring(0, 8)}'),
+                  subtitle: const Text('View payment, summary and rating'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(context, MaterialPageRoute<void>(
+                    builder: (_) => TripTrackingScreen(
+                      rideId: ride.id, repository: repo, showGoogleMap: _mapsReady,
+                      onFinished: () => Navigator.of(context).pop(),
+                    ),
+                  )),
+                )),
             ],
           ),
         ),

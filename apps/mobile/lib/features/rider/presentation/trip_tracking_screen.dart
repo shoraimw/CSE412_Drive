@@ -6,6 +6,8 @@ import '../../../core/providers.dart';
 import '../../../core/theme/drive_theme.dart';
 import '../../../core/widgets/drive_widgets.dart';
 import '../data/rider_repository.dart';
+import '../../trip_services/presentation/trip_chat_screen.dart';
+import '../../trip_services/presentation/trip_checkout_screen.dart';
 import '../domain/route_models.dart';
 
 class TripTrackingScreen extends ConsumerStatefulWidget {
@@ -228,6 +230,26 @@ class _TripTrackingScreenState extends ConsumerState<TripTrackingScreen> {
                   const Text('SOS currently records an incident only. '
                       'It does not contact police or trusted contacts.'),
                 ],
+                if (!isFinished && driverId != null)
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => TripChatScreen(rideId: widget.rideId),
+                      ),
+                    ),
+                    icon: const Icon(Icons.chat_outlined),
+                    label: const Text('Chat with driver'),
+                  ),
+                if (status == 'completed')
+                  FilledButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => TripCheckoutScreen(rideId: widget.rideId),
+                      ),
+                    ),
+                    icon: const Icon(Icons.receipt_long_outlined),
+                    label: const Text('Payment, receipt and rating'),
+                  ),
                 if (isFinished) ...[
                   const SizedBox(height: 18),
                   FilledButton(
