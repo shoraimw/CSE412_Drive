@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers.dart';
 import '../../../core/widgets/drive_widgets.dart';
 import '../../../l10n/app_localizations.dart';
-import '../data/rental_repository.dart';
 import '../domain/rental_booking_window.dart';
 
 class RentalMarketplaceScreen extends ConsumerStatefulWidget {
@@ -296,7 +295,7 @@ class _RentalMarketplaceScreenState
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: vehicleType,
-                  decoration: InputDecoration(labelText: t.rentalVehicleType),
+                  decoration: InputDecoration(labelText: t.vehicleType),
                   items: [
                     DropdownMenuItem(value: 'all', child: Text(t.rentalAllTypes)),
                     DropdownMenuItem(value: 'bike', child: Text(t.bike)),
@@ -348,11 +347,11 @@ class _RentalMarketplaceScreenState
           StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: vehicles,
             builder: (context, snapshot) {
-              if (snapshot.hasError) return Text(snapshot.error.toString());
-              if (!snapshot.hasData) return const Center(
+              if (snapshot.hasError) { return Text(snapshot.error.toString()); }
+              if (!snapshot.hasData) { return const Center(
                 child: Padding(padding: EdgeInsets.all(20),
                   child: CircularProgressIndicator()),
-              );
+              ); }
               final found = filterVehicles(snapshot.data!.docs);
               if (found.isEmpty) return Padding(
                 padding: const EdgeInsets.all(20),

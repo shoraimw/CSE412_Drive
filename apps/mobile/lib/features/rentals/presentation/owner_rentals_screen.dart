@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers.dart';
 import '../../../core/widgets/drive_widgets.dart';
 import '../../../l10n/app_localizations.dart';
-import '../data/rental_repository.dart';
 
 class OwnerRentalsScreen extends ConsumerStatefulWidget {
   const OwnerRentalsScreen({super.key, required this.uid});
@@ -232,7 +231,7 @@ class _RegisterRentalVehicleScreenState
             decoration: InputDecoration(labelText: t.rentalPlate)),
           DropdownButtonFormField<String>(
             initialValue: type,
-            decoration: InputDecoration(labelText: t.rentalVehicleType),
+            decoration: InputDecoration(labelText: t.vehicleType),
             items: [
               DropdownMenuItem(value: 'bike', child: Text(t.bike)),
               DropdownMenuItem(value: 'car', child: Text(t.car)),
