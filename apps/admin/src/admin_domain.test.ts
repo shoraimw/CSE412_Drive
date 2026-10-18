@@ -1,6 +1,6 @@
 import {describe, expect, it} from "vitest";
 import {
-  bdt, demoRates, parseRatePlan, recentStatusCounts,
+  appendUniqueRows, bdt, demoRates, parseRatePlan, recentStatusCounts,
   shortId, validateFarePlan,
 } from "./admin_domain";
 
@@ -26,6 +26,13 @@ describe("Phase 8 admin domain", () => {
     expect(bdt(12345)).toContain("123.45");
     expect(bdt(null)).toBe("—");
     expect(shortId("abcdefghijklmno")).toBe("abcdefg…lmno");
+  });
+  it("appends cursor pages without duplicating an operational record", () => {
+    const earlier=[{id:"x1",status:"open"},{id:"x2",status:"in_review"}];
+    const older=[{id:"x2",status:"open"},{id:"x3",status:"resolved"}];
+    const merged=appendUniqueRows(earlier,older);
+    expect(merged.map(x=>x.id)).toEqual(["x1","x2","x3"]);
+    expect(merged[1].status).toBe("in_review");
   });
   it("clearly counts only provided sampled rows", () => {
     expect(recentStatusCounts([

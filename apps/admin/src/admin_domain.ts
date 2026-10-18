@@ -91,3 +91,15 @@ export function recentStatusCounts(rows: ReadonlyArray<Record<string, unknown>>)
   }
   return result;
 }
+
+/** Avoid duplicated rows if records arrive while loading older pages. */
+export function appendUniqueRows<T extends {id:string}>(
+  existing:ReadonlyArray<T>, older:ReadonlyArray<T>,
+):T[] {
+  const seen=new Set(existing.map(item=>item.id));
+  const merged=[...existing];
+  for(const item of older){
+    if(!seen.has(item.id)){seen.add(item.id);merged.push(item);}
+  }
+  return merged;
+}

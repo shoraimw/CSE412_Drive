@@ -14,7 +14,7 @@ import {
 } from "./admin_api";
 import {
   bdt, categories, demoRates, allRateFields, moneyFields,
-  parseRatePlan, recentStatusCounts, shortId, validateFarePlan,
+  appendUniqueRows, parseRatePlan, recentStatusCounts, shortId, validateFarePlan,
   type FarePlan, type RateField, type VehicleCategory
 } from "./admin_domain";
 
@@ -132,6 +132,12 @@ function ReviewDialog({review,busy,onClose,onSubmit}:{
         A decision will update the server-owned record; permissions are checked
         again by Cloud Functions before anything is committed.
       </p>}
+      {review.tab==="disputes"&&<div className="case-evidence">
+        <strong>Customer's submitted issue</strong>
+        <p>{get(review.row,"description")}</p>
+        <small>Topic: {get(review.row,"topic")} · {get(review.row,"serviceType")}
+          {" · "}Case {shortId(review.row.id)}</small>
+      </div>}
       <label htmlFor="review-reason">Review rationale ({review.tab==="disputes"?"20":"10"}–400 characters)</label>
       <textarea id="review-reason" rows={4} maxLength={400}
         autoFocus value={reason} onChange={e=>setReason(e.target.value)}
@@ -304,7 +310,7 @@ function Pricing() {
       {issues.length>0&&version.length>0&&
         <ul className="validation" role="alert">{issues.slice(0,5).map(x=><li key={x}>{x}</li>)}</ul>}
       <button className="primary"
-        disabled={loading||busy||issues.length>0||confirmation!=="PUBLISH "+version}
+        disabled={loading||busy||!loaded||issues.length>0||confirmation!=="PUBLISH "+version}
         onClick={()=>void submit()}>{busy?"Publishing…":"Publish new pricing version"}</button>
       {error&&<p className="alert error" role="alert">{error}</p>}
       {notice&&<p className="alert success" role="status">{notice}</p>}
@@ -393,7 +399,7 @@ export default function App() {
     try{
       const page=await activityRows(tab,activityCursor);
       if(tabRef.current===requestedTab){
-        setRows(previous=>[...previous,...page.rows]);
+        setRows(previous=>appendUniqueRows(previous,page.rows));
         setActivityCursor(page.cursor);
       }
     }catch(e){
@@ -463,7 +469,9 @@ export default function App() {
     <p className="muted">Only accounts carrying a server-assigned administrator
       custom claim may access operational data. Verification is repeated by Firebase rules and functions.</p>
     {error&&<div className="alert error" role="alert">{error}</div>}
-    {checking||user?<p className="muted">Verifying administrator permissions…</p>
+    {checking?<p className="muted">Verifying administrator permissions…</p>
+      :user?<button className="secondary" type="button"
+        onClick={()=>void logout()}>Sign out and switch account</button>
       :<form onSubmit={login} className="login-form">
       <label>Email<input type="email" autoComplete="username" required
         value={email} onChange={e=>setEmail(e.target.value)}/></label>
