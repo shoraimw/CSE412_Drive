@@ -33,4 +33,4 @@ The driver GPS, expiring offer, trip navigation, completion and estimated-gross 
 
 ## Phase 6 payments and communications
 
-See [Phase 6 guide](../../docs/PHASE_6_PAYMENTS_CHAT_NOTIFICATIONS.md) for cash, Stripe test PaymentSheet, webhook secrets, notifications, chat, ratings and Android native setup (`dart run tool/configure_phase6.dart` after flutter create). Never enable Stripe live keys.
+See [Phase 6 guide](../../docs/PHASE_6_PAYMENTS_CHAT_NOTIFICATIONS.md) for cash, Stripe-hosted TEST Checkout, webhook secrets, Hosting redirects, FID notifications, chat, ratings and Android setup (`dart run tool/configure_phase6.dart` after flutter create). Never enable Stripe live keys.
