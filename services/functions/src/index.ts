@@ -251,7 +251,8 @@ export const registerRentalVehicle = onCall(options, async request => {
 export const reviewRentalVehicle = onCall(options, async request => {
   const adminId = administrator(request);
   const input = parse(z.object({
-    vehicleId: z.string().min(8).max(128), approve: z.boolean()
+    vehicleId: z.string().min(8).max(128), approve: z.boolean(),
+    reason: z.string().trim().max(400).default("")
   }).strict(), request.data);
   const ref = db.doc("vehicles/" + input.vehicleId);
   await db.runTransaction(async tx => {
@@ -260,7 +261,12 @@ export const reviewRentalVehicle = onCall(options, async request => {
       "No pending vehicle.");
     tx.update(ref, {approvalStatus: input.approve ? "approved" : "rejected",
       rentalEnabled: input.approve, reviewedBy: adminId,
-      reviewedAt: FieldValue.serverTimestamp()});
+      reviewReason: input.reason, reviewedAt: FieldValue.serverTimestamp()});
+    tx.create(db.collection("auditEvents").doc(), {
+      type: "vehicle_review", actorId: adminId, vehicleId: input.vehicleId,
+      approved: input.approve, reason: input.reason,
+      createdAt: FieldValue.serverTimestamp()
+    });
   });
   return {status: input.approve ? "approved" : "rejected"};
 });
