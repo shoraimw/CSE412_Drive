@@ -27,6 +27,8 @@ jobs:
         run: flutter create --project-name drive_mobile --platforms=android,ios .
       - name: Download dependencies
         run: flutter pub get
+      - name: Prepare Stripe FragmentActivity and FCM permission
+        run: dart run tool/configure_phase6.dart
       - name: Generate English/Bangla localization
         run: flutter gen-l10n
       - name: Dart analyzer
