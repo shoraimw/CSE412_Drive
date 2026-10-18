@@ -19,7 +19,7 @@ Implementation is tracked against the submitted requirement PDF and the detailed
 - **Implemented source foundations:** authentication/roles, Firebase backend, rider booking, driver workflow/GPS, trip communications, ride payments in cash/Stripe TEST, ratings and notification records.
 - **Current requirement:** Vehicle Rental (third feature in the submitted PDF; detailed SRS FR-05). Renter marketplace and owner listing/booking screens are implemented in source and are undergoing CI/integration validation.
 - **Android APK:** CI is configured to build and upload an emulator-demo APK on a successful Flutter run. A fully connected APK needs your Firebase project configuration; Stripe test mode additionally needs test keys and a matching signed webhook secret.
-- **Admin dashboard (Phase 8):** React/Vite operations console with driver/owner/vehicle review, protected driver documents, recorded safety triage, versioned pricing, sampled analytics and read-only operational history. Shared-ride cost splitting, multi-currency payments, Women Safety Mode, complete emergency delivery and Tourist Mode remain; Phase 7 ML services are experimental and not trained on production data.
+- **Admin dashboard (Phase 8):** React/Vite operations console with driver/owner/vehicle review, private KYC previews, account lookup, participant-submitted dispute triage, safety review, versioned pricing, paginated history and bounded analytics samples. Shared-ride cost splitting, multi-currency payments, Women Safety Mode, complete emergency delivery and Tourist Mode remain; Phase 7 ML services are experimental and not trained on production data.
 
 See the [requirements traceability matrix](docs/REQUIREMENTS_TRACEABILITY.md) for the current state and honest gaps.
 

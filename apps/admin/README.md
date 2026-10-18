@@ -33,3 +33,30 @@ To read private documents, set VITE_FIREBASE_STORAGE_BUCKET, and ensure Firebase
 For production App Check, register your web app with reCAPTCHA Enterprise before setting VITE_RECAPTCHA_ENTERPRISE_SITE_KEY and enabling backend enforcement. Use a restricted HTTPS admin domain, trusted roles, WAF and a reviewed MFA policy.
 
 See docs/PHASE_8_ADMIN_OPERATIONS.md for deployment commands, test cases and remaining operational gaps.
+
+## Phase 8 redo: local build and deployment
+
+The full implementation and security constraints are in
+[Phase 8 Admin Operations](../../docs/PHASE_8_ADMIN_OPERATIONS.md).
+
+```powershell
+cd CSE412_Drive\apps\admin
+npm install
+Copy-Item .env.example .env.local
+notepad .env.local
+npm test
+npm run build
+npm run audit:bundle
+npm run dev
+```
+
+The dev server binds to 127.0.0.1 by default. The server-only admin APIs are
+`lookupAdminUser`, `reviewServiceDispute`, `reviewSafetyIncident`, and the
+existing trust-reviewed approval/pricing callables. The customer-facing
+`openServiceDispute` is also callable only by the verified participant.
+
+To deploy, use a SEPARATE Firebase Hosting site and
+`firebase.admin.json` target `drive-admin`; see the main Phase 8 guide.
+Production Firebase Auth/App Check, domain, security headers and live KYC
+document access require testing. No real refund, settlement or emergency
+notification is performed through this admin dashboard.

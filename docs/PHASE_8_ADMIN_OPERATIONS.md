@@ -1,7 +1,41 @@
-# DRIVE — Phase 8: React Admin Console
+# DRIVE — Phase 8 Redo: React Operations, Account Support and Disputes
 
 **Course:** CSE412 Software Engineering · East West University · Fall 2026
-**Status:** Source implemented, frontend CI verified. Production project, compliance and end-to-end acceptance are separate steps.
+**Status:** Rebuilt Phase 8 source with account diagnostics, participant-initiated disputes, server-side audit, safer hosting and cursor pagination. Production project credentials, deployment, real Stripe refunds and end-to-end operator acceptance are separate steps.
+
+## Phase 8 redo summary
+
+The admin console was already present with approvals, pricing, recent activity and safety review. This redo retains those features and fills practical operations gaps instead of overwriting or bypassing existing server rules.
+
+- **Exact account lookup:** Enter a complete Firebase UID or email. An authenticated admin-only callable checks current Firebase Auth and the associated public-profile fields. It masks phone numbers, returns no tokens/passwords, logs successful searches and limits requests to one every two seconds per administrator. No unrestricted customer export or account suspension is included.
+- **Service dispute lifecycle:** Riders/drivers can create completed/cancelled ride cases, and renters/owners can create cases for confirmed/cancelled rental bookings. A deterministic service/submitter key makes case creation idempotent. Customers submit issue category and 25–1200 character text. Only the reporter and trusted administrator can read the case; browser writes are blocked.
+- **Admin review:** A support case must follow open → in_review → resolved/dismissed, with a 20–800 character backend-validated rationale, expected-status guard against concurrent updates, and immutable audit event. Reviewing a dispute **never creates a Stripe refund**, changes payable fare, issues a payout, or notifies emergency services.
+- **Better operations browsing:** Firestore historical tables use cursor pagination in batches of 30. Client deduplicates records when newer items arrive during paging. Overview remains a deliberately bounded 40-row per-collection sample, not global analytics.
+- **Safer admin operations:** Admin callable requests refresh the Firebase ID token, rejected admin sessions can sign out and switch account, pricing cannot publish demo fallback values while active rates are unavailable, and the local Vite development server binds to localhost.
+- **Release hardening:** A public web-bundle audit checks for common server secrets/keys after Vite build. Separate Hosting target configuration sets security headers and report-only CSP. ReCAPTCHA/App Check, Cloudflare and protected backend traffic require actual user-controlled accounts, domains and test projects.
+
+### Revised admin screens
+
+The dashboard contains **12 views**: Overview, Account lookup, Driver approvals, Owner approvals, Vehicle approvals, Ride operations, Rental operations, Payment records, Safety incidents, Service disputes, Pricing controls and Audit history.
+
+The rider completed-trip checkout and renter booking history now have a **Report an issue** action connected to the trusted dispute callable. Customer support is an internal workflow; do not represent it as automatic financial reconciliation or safety dispatch.
+
+### Server APIs added or hardened
+
+| Callable | Who may call | What it changes |
+|---|---|---|
+| lookupAdminUser | Trusted admin claim | Audited exact Auth/account lookup; no account role mutation |
+| openServiceDispute | Verified participant | Creates one private case per participant/service; no refund |
+| reviewServiceDispute | Trusted admin claim | Audited status decision with optimistic concurrency |
+| reviewSafetyIncident | Trusted admin claim (existing) | Internal triage only; not emergency delivery |
+| reviewDriverApplication / reviewOwnerApplication / reviewRentalVehicle | Trusted admin (existing) | Trusted review and audit |
+| publishPricingConfig | Trusted admin (existing) | Versioned pricing; loaded rates must be available in UI before publishing |
+
+### Security checks
+
+Firestore rules allow a dispute to be read only by its original reporter or a trusted admin and deny all direct writes. Audit event reads are admin-only; no client can forge them. The Firebase Auth Admin SDK is never bundled into the React application. Both front-end and Functions validation guard inputs, but Cloud Functions and Firestore rules are authoritative.
+
+A case marked resolved means support reviewed it—not that cash, cards or rentals were refunded. Financial reconciliation/refund tools need provider-level integration, dual authorization and accounting policies. Likewise, safety incidents remain internal records until emergency notification workflows are built and tested.
 
 ## 1. Goal and requirements mapping
 
@@ -9,26 +43,29 @@ The submitted Group 5 requirement analysis describes Authentication & Security, 
 
 Phase 8 is **operations and safety triage**, not a replacement for incomplete product features. Admin personnel can review trusted records and approve onboarding, but cannot silently forge settlements, overwrite rides, or claim that an SOS was delivered to outside emergency contacts.
 
-### 10 dashboard tabs
+### 12 dashboard tabs
 
 | Tab | Data/API | Implemented workflow | Remaining |
 |---|---|---|---|
 | Overview | Sampled Firestore rides/rentals/payments/incidents | Limited recent status cards and ride distribution | Whole-platform counts need BigQuery or sharded aggregation |
+| Account lookup | lookupAdminUser (new) | Exact UID/email search, masked account details, auditing and rate limits | Moderation/suspension and staff review policy |
 | Driver approvals | driverApplications pending | Review three private uploaded documents; approve/reject through reviewDriverApplication | Full KYC compliance policies/human training |
 | Owner approvals | ownerProfiles pending | Approve/reject through reviewOwnerApplication | Broader business verification and monitoring |
 | Vehicle approvals | vehicles pending | Approve/reject through reviewRentalVehicle; capture audit reason | Rich photo/ownership verification |
-| Ride operations | rides | Last 60 ride states, categories, quoted/final fare | Trip interventions, dispute process, geo privacy workflow |
-| Rental operations | rentalBookings | Last 60 booking states and booked fare | Manual override policies and refunds |
-| Payment records | payments | Last 60 cash or Stripe TEST statuses, strictly read-only | Real settlement, refund tools and payout ledger |
+| Ride operations | rides | Cursor-paginated ride states, categories, quoted/final fare | Trip interventions and geo privacy workflow |
+| Rental operations | rentalBookings | Cursor-paginated booking states and booked fare | Manual override policies and refunds |
+| Payment records | payments | Cursor-paginated cash and Stripe TEST statuses, strictly read-only | Settlement, real refunds and payout ledger |
 | Safety incidents | safetyIncidents | open → in_review → resolved/dismissed, rationales, audit | External incident response and trusted-contact delivery |
+| Service disputes | serviceDisputes and callable workflow (new) | Participant submission and audited admin review | Actual refund/provider reconciliation, appeals and SLAs |
 | Pricing controls | appConfig/public and pricingConfigs | Load current BDT rates, validate and publish a new version via server | Discount/tax policy, approvals/change management |
-| Audit history | auditEvents | Read latest 60 server-originated decisions | Full archival/export, SIEM pipeline |
+| Audit history | auditEvents | Cursor-paginated server-originated decisions | Archival/export, SIEM pipeline |
 
 Records in the browsing and overview tabs are **bounded samples**, not whole-platform analytics. Sampling reduces Firestore reads but does not prove capacity for millions of users.
 
 ## 2. Repository structure
 
     apps/admin/
+      src/AccountLookup.tsx          // protected exact user lookup
       src/App.tsx                    // responsive role-gated React admin workspace
       src/admin_api.ts              // bounded Firestore subscriptions, backend callables
       src/admin_domain.ts           // numeric fare validation and formatting
@@ -38,12 +75,14 @@ Records in the browsing and overview tabs are **bounded samples**, not whole-pla
       src/style.css                 // layout, tables, cards, responsive navigation
       .env.example
       package.json
-    services/functions/src/admin_ops.ts    // audited safety-case decisions
+    services/functions/src/admin_ops.ts    // audited safety/dispute decisions and account lookup
+    services/functions/src/admin_policy.ts // case state transitions with unit tests
     services/functions/src/index.ts        // existing trusted driver/owner/vehicle/pricing reviews
     firebase/firestore.rules               // admin-only audit log read
     tests/firebase/firestore.test.mjs      // audit security rules
     tests/integration/backend.test.mjs     // admin review state transition cases
-    .github/workflows/phase7-admin.yml    // Phase 8 React checks (historic filename)
+    firebase.admin.json                   // separate administrative Hosting target
+    .github/workflows/phase7-admin.yml    // React build plus browser-bundle secret check
     docs/PHASE_8_ADMIN_OPERATIONS.md
 
 ## 3. Architecture and security
@@ -103,7 +142,7 @@ npm run emulators
 Second terminal (web dashboard):
 
 ~~~powershell
-cd CSE412_Driveappsadmin
+cd CSE412_Drive\apps\admin
 npm install
 Copy-Item .env.example .env.local
 notepad .env.local
@@ -257,9 +296,46 @@ Security acceptance scenarios:
 
 Automated unit tests cover domain pricing validation, formatting and sampled status aggregation. Firebase rules/integration test additions cover audit authorization and safety-case backend transitions. Web build/CI is independent of the larger Firebase emulator suite; do not claim emulator tests passed until the entire run is green.
 
+## Rebuilt admin Hosting deployment (staging first)
+
+Do NOT replace the public payment-success Hosting deployment. This project has a separate *optional* Firebase Hosting configuration at `firebase.admin.json`; its `drive-admin` target must point to a Hosting site you own. It is **not** deployed automatically.
+
+```powershell
+cd CSE412_Drive
+git pull origin main
+npm --prefix apps/admin install
+npm --prefix apps/admin run build
+npm --prefix apps/admin run audit:bundle
+
+npx firebase-tools login
+npx firebase-tools hosting:sites:create YOUR_ADMIN_SITE_ID --project YOUR_PROJECT_ID
+npx firebase-tools target:apply hosting drive-admin YOUR_ADMIN_SITE_ID --project YOUR_PROJECT_ID
+npx firebase-tools deploy --config firebase.admin.json --only hosting:drive-admin --project YOUR_PROJECT_ID
+```
+
+Ensure your Admin Web Firebase app uses only public Firebase Web API configuration, a properly registered App Check reCAPTCHA Enterprise site key and a **trusted admin:true claim** granted from secure server-side administrator tooling. Keep service accounts, payment gateway secrets and webhook signing secrets out of the browser and environment files. The bundle scanner detects common secret patterns but is not a substitute for manual code review or secret-scanning pipelines.
+
+Security headers include nosniff, DENY framing, no-referrer, no device permissions, no-store for HTML and a **report-only CSP**. CSP is not enforced until its production Auth, reCAPTCHA, Storage and Cloud Functions cross-origin requests have been evaluated. On an external Cloudflare-proxied custom admin hostname, enable WAF, managed DDoS protection, per-session bot rules and origin controls; direct Firebase SDK traffic remains outside Cloudflare's protection and requires App Check and Firebase security rules.
+
+### Local admin access
+
+Use a separate verified Firebase Auth account and grant admin custom claim from trusted development/backend scripts. For local Auth Emulator only (after account creation):
+
+```powershell
+$env:GCLOUD_PROJECT="demo-drive-local"
+$env:FIREBASE_AUTH_EMULATOR_HOST="127.0.0.1:9099"
+node services/functions/scripts/grant-admin.cjs existing-admin@example.test
+```
+
+Refresh the admin ID token or sign out/in after claim creation. Never grant a live administrator role from a browser or a production client app. Before real deployment, require stronger staff authentication and documented role separation/incident review policy.
+
 ## 9. Phase completion checklist
 
-- [x] React dashboard with 10 operational tabs
+- [x] React dashboard with 12 operational tabs
+- [x] Exact user lookup with trusted claims, rate limits and an audit record
+- [x] Participant-submitted ride/rental disputes and audited admin review
+- [x] Cursor pagination for operational records and duplicate suppression
+- [x] Separate admin Hosting target and browser bundle secret-pattern audit
 - [x] Trusted admin login and protected data reads
 - [x] Driver, owner and vehicle approval workflows
 - [x] Private document review with no durable token URLs
@@ -272,7 +348,7 @@ Automated unit tests cover domain pricing validation, formatting and sampled sta
 - [ ] Live staging Firebase, Storage CORS and private-document review validation
 - [ ] Firebase emulator suite passing CI with new security tests
 - [ ] Whole-platform analytics warehouse and distributed aggregate counters
-- [ ] Refunds, real payouts, disputes, 24/7 emergency response
+- [ ] Real provider refunds, payout ledger, dispute financial resolution, 24/7 emergency response
 - [ ] Security review, multi-admin separation of duties, audit retention and scale testing
 
 **Next phase:** Phase 9 — systematic QA, tests, deployment automation and production-readiness preparation. Phase 9 is not started until the user says next.
