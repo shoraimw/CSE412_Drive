@@ -10,6 +10,8 @@ import {
   approximateRoute, calculateFare, haversineKm, reservationSlots,
   scoreDriver, validStateTransition, Point, FareRates, VehicleCategory
 } from "./domain";
+import {mapsServerKey, serverRoute} from "./maps";
+export {autocompletePlaces, resolvePlace} from "./maps";
 
 const initialConfig = JSON.parse(process.env.FIREBASE_CONFIG || "{}") as {
   projectId?: string; databaseURL?: string; storageBucket?: string;
@@ -275,32 +277,54 @@ async function activePricing(category: VehicleCategory): Promise<{
   return {version, rate};
 }
 
-export const getFareQuote = onCall(options, async request => {
-  const uid = authenticated(request);
-  const input = parse(z.object({
-    pickup: pointSchema, destination: pointSchema, vehicleType: categorySchema
-  }).strict(), request.data);
-  const {version, rate} = await activePricing(input.vehicleType);
-  let route: ReturnType<typeof approximateRoute>;
-  let fare: ReturnType<typeof calculateFare>;
-  try {
-    route = approximateRoute(input.pickup, input.destination);
-    fare = calculateFare(route.distanceMeters, route.durationSeconds, rate);
-  } catch (error) {
-    throw new HttpsError("invalid-argument", error instanceof Error ? error.message : "Invalid trip.");
+export const getFareQuote = onCall(
+  {...options, secrets: [mapsServerKey]},
+  async request => {
+    const uid = authenticated(request);
+    const input = parse(z.object({
+      pickup: pointSchema, destination: pointSchema, vehicleType: categorySchema
+    }).strict(), request.data);
+    const {version, rate} = await activePricing(input.vehicleType);
+    let route: {
+      distanceMeters: number; durationSeconds: number; provisional: boolean;
+      encodedPolyline?: string; routeSource?: string;
+    };
+    try {
+      // No silent live fallback when Routes fails: that would produce a
+      // potentially misleading real-world quote.
+      route = process.env.FUNCTIONS_EMULATOR === "true" &&
+        !mapsServerKey.value()
+        ? {...approximateRoute(input.pickup, input.destination),
+          encodedPolyline: "", routeSource: "emulator_provisional"}
+        : await serverRoute(input.pickup, input.destination, input.vehicleType);
+    } catch (error) {
+      if (error instanceof HttpsError) throw error;
+      throw new HttpsError("invalid-argument", error instanceof Error ?
+        error.message : "Invalid route.");
+    }
+    let fare;
+    try {
+      fare = calculateFare(route.distanceMeters, route.durationSeconds, rate);
+    } catch (e) {
+      throw new HttpsError("failed-precondition", e instanceof Error ?
+        e.message : "Fare computation failed.");
+    }
+    const quote = db.collection("rideQuotes").doc();
+    const now = Date.now();
+    await quote.create({
+      riderId: uid, ...input, ...route, fare, pricingVersion: version,
+      currency: "BDT", estimateMethod: route.routeSource,
+      expiresAt: Timestamp.fromMillis(now + 5 * 60 * 1000),
+      usedAt: null, createdAt: FieldValue.serverTimestamp()
+    });
+    return {
+      quoteId: quote.id, expiresAtMs: now + 5 * 60 * 1000,
+      route, fare, pricingVersion: version, currency: "BDT",
+      warning: route.provisional ?
+        "Demo-only approximate route. No live road routing is connected." : null
+    };
   }
-  const quote = db.collection("rideQuotes").doc();
-  const now = Date.now();
-  await quote.create({
-    riderId: uid, ...input, ...route, fare, pricingVersion: version,
-    currency: "BDT", estimateMethod: "great_circle_demo",
-    expiresAt: Timestamp.fromMillis(now + 5 * 60 * 1000),
-    usedAt: null, createdAt: FieldValue.serverTimestamp()
-  });
-  return {quoteId: quote.id, expiresAtMs: now + 5 * 60 * 1000,
-    route, fare, pricingVersion: version, currency: "BDT",
-    warning: "Provisional straight-line estimate. Real road-route validation is added in Phase 4."};
-});
+);
 
 export const requestRide = onCall(options, async request => {
   const uid = authenticated(request);
@@ -328,7 +352,11 @@ export const requestRide = onCall(options, async request => {
       pickup: quote.get("pickup"), destination: quote.get("destination"),
       vehicleType: quote.get("vehicleType"), fare: quote.get("fare"),
       currency: "BDT", pricingVersion: quote.get("pricingVersion"),
-      estimateMethod: quote.get("estimateMethod"), provisional: true,
+      estimateMethod: quote.get("estimateMethod"),
+      provisional: quote.get("provisional") === true,
+      routePolyline: quote.get("encodedPolyline") || "",
+      distanceMeters: quote.get("distanceMeters"),
+      durationSeconds: quote.get("durationSeconds"),
       createdAt: FieldValue.serverTimestamp(), acceptedAt: null
     });
     tx.create(activeRef, {rideId: rideRef.id});
