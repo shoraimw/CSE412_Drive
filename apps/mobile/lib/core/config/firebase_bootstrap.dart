@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
@@ -71,6 +72,15 @@ class DriveFirebaseConfig {
               databaseURL: databaseUrl.isEmpty ? null : databaseUrl,
             ),
     );
+    // App Check is activated for real Android/iOS Firebase apps only.
+    // Register their signing fingerprints and providers in Firebase first.
+    // Backend enforcement must be rolled out AFTER observing token health.
+    if (!emulator && !kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      await FirebaseAppCheck.instance.activate(
+        providerAndroid: const AndroidPlayIntegrityProvider(),
+        providerApple: const AppleAppAttestWithDeviceCheckFallbackProvider(),
+      );
+    }
     if (emulator) {
       final host = emulatorHost;
       await FirebaseAuth.instanceFor(app: app).useAuthEmulator(host, 9099);

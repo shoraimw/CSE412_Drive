@@ -7,7 +7,8 @@ import {z} from "zod";
 
 function db() { return getFirestore(); }
 const region = "asia-south1";
-const callOptions = {region, maxInstances: 10};
+const callOptions = {region, maxInstances: 10,
+  enforceAppCheck: process.env.DRIVE_ENFORCE_APP_CHECK === "true"};
 const rideIdSchema = z.string().min(8).max(128);
 const textSchema = z.string().trim().min(1).max(1000);
 const allowedStatuses = new Set(["accepted", "driver_arriving", "in_progress"]);

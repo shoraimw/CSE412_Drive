@@ -4,7 +4,8 @@ import {z} from "zod";
 import {Point} from "./domain";
 
 export const mapsServerKey = defineSecret("GOOGLE_MAPS_SERVER_KEY");
-const options = {region: "asia-south1", maxInstances: 10, secrets: [mapsServerKey]};
+const options = {region: "asia-south1", maxInstances: 10, secrets: [mapsServerKey],
+  enforceAppCheck: process.env.DRIVE_ENFORCE_APP_CHECK === "true"};
 const placesEndpoint = "https://places.googleapis.com/v1/";
 
 function requireAuth(uid: string | undefined): void {

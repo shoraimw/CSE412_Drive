@@ -7,6 +7,7 @@ import {z} from "zod";
 const stripeSecret = defineSecret("STRIPE_TEST_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_TEST_WEBHOOK_SECRET");
 const region = "asia-south1";
+const enforceAppCheck = process.env.DRIVE_ENFORCE_APP_CHECK === "true";
 const rideInput = z.object({rideId: z.string().min(8).max(128)}).strict();
 const db = () => getFirestore();
 
@@ -59,7 +60,7 @@ function redirectBase(): string {
 }
 
 /** Rider selects pay-the-driver cash; a choice is not receipt evidence. */
-export const chooseCashForRide = onCall({region}, async request => {
+export const chooseCashForRide = onCall({region, enforceAppCheck}, async request => {
   const uid = authenticated(request);
   const rideId = rideIdFrom(request.data);
   const rideRef = db().doc("rides/" + rideId);
@@ -90,7 +91,7 @@ export const chooseCashForRide = onCall({region}, async request => {
 });
 
 /** Driver attestation, never independent confirmation of cash collection. */
-export const reportCashReceived = onCall({region}, async request => {
+export const reportCashReceived = onCall({region, enforceAppCheck}, async request => {
   const uid = authenticated(request);
   const rideId = rideIdFrom(request.data);
   const ref = db().doc("payments/" + rideId);
@@ -119,7 +120,7 @@ export const reportCashReceived = onCall({region}, async request => {
  * not mean the charge succeeded; only a signed webhook can mark paid_test.
  */
 export const prepareStripeTestCheckout = onCall(
-  {region, secrets: [stripeSecret], maxInstances: 10}, async request => {
+  {region, secrets: [stripeSecret], maxInstances: 10, enforceAppCheck}, async request => {
     const uid = authenticated(request);
     const rideId = rideIdFrom(request.data);
     const stripeClient = stripe();

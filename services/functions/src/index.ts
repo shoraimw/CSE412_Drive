@@ -41,7 +41,8 @@ const db = getFirestore();
 const rtdb = getDatabase();
 const auth = getAuth();
 const region = "asia-south1";
-const options = {region, maxInstances: 10, memory: "256MiB" as const};
+const options = {region, maxInstances: 10, memory: "256MiB" as const,
+  enforceAppCheck: process.env.DRIVE_ENFORCE_APP_CHECK === "true"};
 const pointSchema = z.object({
   lat: z.number().finite().min(-90).max(90),
   lng: z.number().finite().min(-180).max(180)
