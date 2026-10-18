@@ -10,6 +10,7 @@ import '../../../core/widgets/drive_widgets.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../onboarding/presentation/driver_application_screen.dart';
 import '../../onboarding/presentation/owner_application_screen.dart';
+import '../../rider/presentation/rider_home_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key, required this.user, required this.profile});
@@ -42,7 +43,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final driverApproved = driverData?['approvalStatus'] == 'approved';
     final ownerApproved = ownerData?['approvalStatus'] == 'approved';
     final views = <Widget>[
-      const _RiderPanel(),
+      const RiderHomeScreen(),
       if (driverApproved) _DriverPanel(
         driverData: driverData ?? const <String, dynamic>{},
       ),
@@ -95,55 +96,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onDestinationSelected: (index) => setState(() => tab = index),
         destinations: destinations,
       ),
-    );
-  }
-}
-
-class _RiderPanel extends StatelessWidget {
-  const _RiderPanel();
-  @override
-  Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: DrivePalette.midnight,
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.route_rounded, color: DrivePalette.green, size: 42),
-              const SizedBox(height: 26),
-              Text(t.yourRide, style: Theme.of(context)
-                  .textTheme.headlineMedium?.copyWith(color: Colors.white)),
-              const SizedBox(height: 10),
-              Text(t.riderNext, style: const TextStyle(color: Colors.white70)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 22),
-        Text(t.upcoming, style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 12),
-        _FeatureTile(icon: Icons.two_wheeler_rounded, title: t.rideSharing,
-          subtitle: t.riderNext),
-        _FeatureTile(icon: Icons.car_rental_rounded, title: t.vehicleRentals,
-          subtitle: t.ownerNext),
-        _FeatureTile(icon: Icons.health_and_safety_outlined, title: t.safety,
-          subtitle: t.featuresSoon),
-        _FeatureTile(icon: Icons.travel_explore, title: t.tourist,
-          subtitle: t.featuresSoon),
-        Padding(
-          padding: const EdgeInsets.only(top: 14),
-          child: Text(t.version,
-            style: TextStyle(color: scheme.onSurfaceVariant),
-            textAlign: TextAlign.center),
-        ),
-      ],
     );
   }
 }

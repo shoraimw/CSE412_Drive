@@ -5,6 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 
 /// Actual production Firebase application credentials are supplied using
@@ -79,6 +80,7 @@ class DriveFirebaseConfig {
       await FirebaseStorage.instanceFor(app: app).useStorageEmulator(
         host, 9199,
       );
+      FirebaseDatabase.instanceFor(app: app).useDatabaseEmulator(host, 9000);
     }
   }
 }
