@@ -57,7 +57,7 @@ jobs:
 
   mobile:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: apps/mobile
@@ -73,6 +73,15 @@ jobs:
       - run: flutter gen-l10n
       - run: flutter analyze
       - run: flutter test
+      - name: Assemble non-production Android demo APK
+        run: flutter build apk --release --dart-define=DRIVE_EMULATOR=true
+      - name: Publish test-only Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: drive-phase9-emulator-demo-apk
+          path: apps/mobile/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
 
   ml:
     runs-on: ubuntu-latest
