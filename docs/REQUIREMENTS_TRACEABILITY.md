@@ -30,8 +30,8 @@ This matrix prevents the project from being described as complete merely because
 | FR-19 | Notifications | Private in-app records and best-effort FCM path exist; APNs/FCM credentials and real-device delivery are not yet verified. |
 | FR-20 | Ratings, reviews, history | Ride ratings and rider/driver trip history exist; rental reviews and full unified history remain. |
 | FR-21 | Driver earnings and payouts | Estimated gross from completed rides only; not net earnings, settlement or payout. |
-| FR-22 | Admin operations | Backend review/pricing capabilities exist; React admin dashboard and full operational workflows are not yet implemented. |
-| FR-23 | Admin analytics | Not implemented. |
+| FR-22 | Admin operations | Phase 8 React dashboard now includes driver/owner/vehicle approvals, audited safety triage, pricing version publishing, private document review and read-only ride/rental/payment history. Refunds, disputes, suspensions and full operational staffing remain. |
+| FR-23 | Admin analytics | Phase 8 shows only bounded recent samples (maximum 40 per collection) and status distribution. Whole-platform totals, data warehouse and operational BI remain. |
 | FR-24 | ML and anomaly insights | Phase 7 FastAPI experimental ML source, temporal training and anomaly baseline exist; no deployed, approved real-data ML models. |
 | FR-25 | Localization and accessibility | English/Bangla and themes exist; newly added rental screens include English/Bangla labels. Full accessibility review remains. |
 
@@ -64,3 +64,7 @@ The original PDF specifies scalability, security and performance but not a numer
 - [ ] Real Firebase configuration and end-to-end device smoke test pass.
 
 **Current work order:** finish/validate Vehicle Rental; then proceed through ride booking, shared ride/cost sharing, tracking, fare, route optimization, multi-currency payments, women safety, emergency/safe-trip, and Tourist Mode. Revisit every partial cross-cutting requirement before final release.
+
+## Phase 8 Admin Operations
+
+The existing React vehicle-approval foundation has been expanded into a protected admin operations dashboard with the workflows described in [Phase 8 documentation](PHASE_8_ADMIN_OPERATIONS.md). Role claims remain server-assigned, Firestore audit records cannot be client-modified, private KYC document previews use Firebase Storage rules, and safety triage records a human review without claiming emergency notification delivery. Admin analytics remain **bounded recent samples**; they are not exhaustive production metrics.
