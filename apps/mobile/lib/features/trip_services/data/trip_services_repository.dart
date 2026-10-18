@@ -93,7 +93,7 @@ class TripServicesRepository {
     final messaging = FirebaseMessaging.instance;
     final listener = messaging.onRegistered.listen((installationId) {
       _registeredInstallationId = installationId;
-      unawaited(_registerToken(installationId).catchError((Object _) {
+      unawaited(_registerInstallation(installationId).catchError((Object _) {
         debugPrint('Unable to register this device for push.');
       }));
     });
