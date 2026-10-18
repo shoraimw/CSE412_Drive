@@ -84,7 +84,7 @@ void main() {
         throw FormatException('Unable to locate Flutter plugin registration.');
       }
       swift = swift.replaceFirst('GeneratedPluginRegistrant.register(with: self)',
-          '$initializerGeneratedPluginRegistrant.register(with: self)');
+          '${initializer}GeneratedPluginRegistrant.register(with: self)');
     }
     app.writeAsStringSync(swift);
     final xcconfig = File('ios/Flutter/DriveMapsKeys.xcconfig');

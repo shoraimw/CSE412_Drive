@@ -62,9 +62,11 @@ class _TripTrackingScreenState extends ConsumerState<TripTrackingScreen> {
     try {
       final result = await widget.repository.dispatch(widget.rideId);
       final count = (result['offeredTo'] as List<dynamic>? ?? []).length;
-      if (mounted) showDriveMessage(context,
-        count == 0 ? 'No eligible drivers are online near pickup.'
-          : 'Ride offer sent to $count driver(s).');
+      if (mounted) {
+        showDriveMessage(context,
+          count == 0 ? 'No eligible drivers are online near pickup.'
+              : 'Ride offer sent to $count driver(s).');
+      }
     } catch (e) {
       if (mounted) showDriveError(context, e);
     } finally {
