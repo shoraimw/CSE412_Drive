@@ -21,6 +21,8 @@ test("Private applicant upload is readable only to applicant and admin", async (
   await assertSucceeds(uploadBytes(ref(userStorage, path), body, {contentType: "image/jpeg"}));
   await assertFails(getBytes(ref(outsiderStorage, path)));
   await assertSucceeds(getBytes(ref(adminStorage, path)));
+  await assertFails(uploadBytes(ref(userStorage, path), body,
+    {contentType: "image/jpeg"})); // immutable KYC evidence
   await assertFails(uploadBytes(ref(outsiderStorage, path), body, {contentType: "image/jpeg"}));
   await assertFails(uploadBytes(ref(userStorage, "applications/alice/payload.exe"),
     new Uint8Array([1, 2]), {contentType: "application/x-msdownload"}));

@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/providers.dart';
 import '../../../core/widgets/drive_widgets.dart';
@@ -83,7 +84,9 @@ class _DriverApplicationScreenState extends ConsumerState<DriverApplicationScree
       for (final kind in ['licence', 'vehicle', 'photo']) {
         final file = selectedFiles[kind]!;
         final extension = file.extension?.toLowerCase() ?? 'pdf';
-        final path = 'applications/$uid/$kind.$extension';
+        // New files for each attempt; submitted KYC evidence is immutable.
+        final nonce = const Uuid().v4();
+        final path = 'applications/$uid/$kind-$nonce.$extension';
         await storage.ref(path).putData(
           Uint8List.fromList(file.bytes!),
           SettableMetadata(contentType: contentType(file)),
