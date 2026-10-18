@@ -71,10 +71,12 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
     try {
       final newQuote = await ref.read(riderRepositoryProvider)
           .getFareQuote(pickup!, destination!, category);
-      if (mounted) setState(() {
-        quote = newQuote;
-        mlReport = null;
-      });
+      if (mounted) {
+        setState(() {
+          quote = newQuote;
+          mlReport = null;
+        });
+      }
     } catch (error) {
       if (mounted) showDriveError(context, error);
     } finally {
