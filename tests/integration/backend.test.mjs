@@ -210,4 +210,62 @@ test("Full Phase 2 backend scenario: auth, quote, match, rental locks and SOS", 
   assert.equal(payment.get("status"), "cash_reported_received");
   assert.equal(payment.get("externalVerified"), false);
 
+  // Phase 8 redo: verified participants can file support cases, but cannot
+  // forge a refund or move the administrative review workflow.
+  const disputePayload = {
+    serviceType: "ride", serviceId: booking.rideId, topic: "payment",
+    description: "I would like the cash fare recorded for this ride reviewed carefully."
+  };
+  const dispute = await call("openServiceDispute", rider.token, disputePayload);
+  assert.equal(dispute.status, "open");
+  assert.equal(dispute.refundStatus, "not_processed");
+  const sameCase = await call("openServiceDispute", rider.token, disputePayload);
+  assert.equal(sameCase.disputeId, dispute.disputeId);
+  await denied("openServiceDispute", owner.token, disputePayload);
+  await denied("reviewServiceDispute", rider.token, {
+    disputeId: dispute.disputeId, expectedStatus: "open",
+    nextStatus: "in_review",
+    note: "A rider account cannot administer a support case."
+  });
+  await denied("reviewServiceDispute", adminSession.token, {
+    disputeId: dispute.disputeId, expectedStatus: "open",
+    nextStatus: "resolved",
+    note: "A case must first be placed into the in-review state."
+  });
+  const firstReview = await call("reviewServiceDispute", adminSession.token, {
+    disputeId: dispute.disputeId, expectedStatus: "open",
+    nextStatus: "in_review",
+    note: "Checking the simulated payment incident details and history."
+  });
+  assert.equal(firstReview.status, "in_review");
+  await denied("reviewServiceDispute", adminSession.token, {
+    disputeId: dispute.disputeId, expectedStatus: "open",
+    nextStatus: "in_review",
+    note: "This attempt uses a stale expected status and must be refused."
+  });
+  const resolvedCase = await call("reviewServiceDispute", adminSession.token, {
+    disputeId: dispute.disputeId, expectedStatus: "in_review",
+    nextStatus: "resolved",
+    note: "The academic payment case was reviewed, not refunded."
+  });
+  assert.equal(resolvedCase.refundProcessed, false);
+  const caseDoc = await getFirestore().doc(
+    "serviceDisputes/" + dispute.disputeId).get();
+  assert.equal(caseDoc.get("refundStatus"), "not_processed");
+  assert.equal(caseDoc.get("status"), "resolved");
+
+  const rentalCase = await call("openServiceDispute", owner.token, {
+    serviceType: "rental", serviceId: reused.bookingId, topic: "service",
+    description: "The reservation requires a manual owner-support review and follow up."
+  });
+  assert.equal(rentalCase.status, "open");
+  const account = await call("lookupAdminUser", adminSession.token, {
+    identifier: "drive-rider@example.test"
+  });
+  assert.equal(account.uid, rider.uid);
+  assert.equal(account.adminClaim, false);
+  await denied("lookupAdminUser", rider.token, {
+    identifier: "drive-admin@example.test"
+  });
+
 });
