@@ -7,6 +7,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/auth/data/auth_repository.dart';
+import '../features/trip_services/data/trip_services_repository.dart';
+
+final tripServicesRepositoryProvider = Provider<TripServicesRepository>((ref) {
+  return TripServicesRepository(
+    firestore: ref.watch(firestoreProvider),
+    functions: ref.watch(functionsProvider),
+  );
+});
 
 final firebaseAuthProvider = Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);
 final firestoreProvider = Provider<FirebaseFirestore>(

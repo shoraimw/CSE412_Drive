@@ -7,6 +7,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 
 /// Actual production Firebase application credentials are supplied using
 /// --dart-define-from-file. They are not committed to public GitHub.
@@ -71,6 +72,16 @@ class DriveFirebaseConfig {
               databaseURL: databaseUrl.isEmpty ? null : databaseUrl,
             ),
     );
+    const stripeKey = String.fromEnvironment(
+      'STRIPE_TEST_PUBLISHABLE_KEY', defaultValue: '',
+    );
+    if (stripeKey.isNotEmpty) {
+      if (!stripeKey.startsWith('pk_test_')) {
+        throw StateError('DRIVE accepts only Stripe test publishable keys.');
+      }
+      Stripe.publishableKey = stripeKey;
+      await Stripe.instance.applySettings();
+    }
     if (emulator) {
       final host = emulatorHost;
       await FirebaseAuth.instanceFor(app: app).useAuthEmulator(host, 9099);

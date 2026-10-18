@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import '../../onboarding/presentation/driver_application_screen.dart';
 import '../../onboarding/presentation/owner_application_screen.dart';
 import '../../rider/presentation/rider_home_screen.dart';
 import '../../driver/presentation/driver_screen.dart';
+import '../../trip_services/presentation/notifications_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key, required this.user, required this.profile});
@@ -22,16 +24,38 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int tab = 0;
+  StreamSubscription<String>? pushListener;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      try {
+        final listener = await ref.read(tripServicesRepositoryProvider)
+            .startPushRegistration();
+        if (mounted) {
+          pushListener = listener;
+        } else {
+          await listener?.cancel();
+        }
+      } catch (error) {
+        // In-app notifications remain usable when FCM is not configured.
+        debugPrint('Push setup unavailable on this device.');
+      }
+    });
     final locale = widget.profile['locale'] as String?;
     if (locale == 'bn' || locale == 'en') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) ref.read(appLocaleProvider.notifier).setLanguage(locale!);
       });
     }
+  }
+
+  @override
+  void dispose() {
+    unawaited(pushListener?.cancel() ?? Future<void>.value());
+    super.dispose();
   }
 
   @override
@@ -73,6 +97,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       appBar: AppBar(
         title: Text('DRIVE', style: Theme.of(context).textTheme.titleLarge),
         actions: [
+          IconButton(
+            tooltip: 'Notifications',
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => NotificationsScreen(uid: widget.user.uid),
+            )),
+          ),
           IconButton(
             tooltip: t.refreshAccess,
             onPressed: () async {
@@ -221,6 +252,12 @@ class _AccountPanel extends ConsumerWidget {
               await ref.read(functionsProvider)
                   .httpsCallable('setDriverAvailability')
                   .call({'online': false});
+            }
+            try {
+              await ref.read(tripServicesRepositoryProvider)
+                  .unregisterDeviceFromPush();
+            } catch (error) {
+              debugPrint('Could not unregister push ID before logout.');
             }
             await ref.read(authRepositoryProvider).logout();
           } catch (error) {
