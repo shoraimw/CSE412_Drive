@@ -12,6 +12,7 @@ unconsented personal data. Output .joblib must be treated as trusted code.
 """
 import argparse
 import json
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 import joblib
@@ -52,6 +53,7 @@ def train(csv: Path, out: Path, version: str) -> dict:
     X_train, X_test = X[:split], X[split:]
     Y_train, Y_test = Y[:split], Y[split:]
     metrics = {}
+    artifact_sha256 = {}
     # Train all models and evaluate against a trivial mean-only baseline.
     # Models are NOT deployed by this script.
     out.mkdir(parents=True, exist_ok=True)
@@ -67,7 +69,9 @@ def train(csv: Path, out: Path, version: str) -> dict:
             "mae": float(mae), "baseline_mae": float(baseline_mae),
             "beats_baseline": bool(mae < baseline_mae),
         }
-        joblib.dump(model, out / f"{name}.joblib")
+        output = out / f"{name}.joblib"
+        joblib.dump(model, output)
+        artifact_sha256[name] = hashlib.sha256(output.read_bytes()).hexdigest()
     manifest = {
         "version": version,
         "created_utc": datetime.now(timezone.utc).isoformat(),
@@ -75,6 +79,7 @@ def train(csv: Path, out: Path, version: str) -> dict:
         "train_rows": len(X_train), "test_rows": len(X_test),
         "training_method": "temporal_holdout_80_20",
         "metrics": metrics,
+        "artifact_sha256": artifact_sha256,
         "production_approved": False,
         "note": "Experimental; only deploy after human data/metric review.",
     }

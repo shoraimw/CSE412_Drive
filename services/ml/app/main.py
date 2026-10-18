@@ -5,6 +5,7 @@ the end user and calls this service using its own Cloud Run Invoker identity.
 """
 import logging
 import os
+import hashlib
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -31,12 +32,20 @@ async def lifespan(_: FastAPI):
         manifest = json.loads((path / "manifest.json").read_text())
         if manifest.get("feature_names") != list(FEATURE_NAMES):
             raise RuntimeError("ML feature schema mismatch")
-        for name in MODELS:
-            model_path = path / (name + ".joblib")
-            if model_path.exists() and name in manifest.get("metrics", {}):
-                registry[name] = joblib.load(model_path)
-        registry["manifest"] = manifest
-        logger.info("Loaded %d pre-approved ML model(s)", len(registry) - 1)
+        approved = manifest.get("production_approved") is True
+        allow_experiment = os.environ.get("DRIVE_ALLOW_EXPERIMENTAL_MODELS") == "true"
+        if not approved and not allow_experiment:
+            logger.warning("Experimental model refused: set local test opt-in or review artifact")
+        else:
+            for name in MODELS:
+                model_path = path / (name + ".joblib")
+                expected = manifest.get("artifact_sha256", {}).get(name)
+                if model_path.exists() and name in manifest.get("metrics", {}):
+                    if not expected or hashlib.sha256(model_path.read_bytes()).hexdigest() != expected:
+                        raise RuntimeError("ML artifact checksum mismatch")
+                    registry[name] = joblib.load(model_path)
+            registry["manifest"] = manifest
+            logger.info("Loaded %d controlled ML model(s)", len(registry) - 1)
     else:
         logger.warning("No audited models present: predictions return 503")
     yield

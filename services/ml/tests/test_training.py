@@ -34,6 +34,7 @@ def test_training_records_holdout_metrics_and_predictions(tmp_path, monkeypatch)
     assert all("mae" in manifest["metrics"][name] for name in
                ("eta_minutes", "observed_fare_minor", "requests_next_hour"))
     monkeypatch.setenv("DRIVE_MODEL_DIR", str(out))
+    monkeypatch.setenv("DRIVE_ALLOW_EXPERIMENTAL_MODELS", "true")
     with TestClient(app) as client:
         result = client.post("/v1/predict/eta", json={"features": {
             "distance_km": 8.0, "traffic_index": 1.0,

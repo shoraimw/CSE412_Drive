@@ -14,7 +14,12 @@ pytest -q
 uvicorn app.main:app --reload
 ```
 
-The server starts WITHOUT a model. /healthz returns models_ready=false,
+The server starts WITHOUT a model. By default experimental artifacts
+are NOT loaded even when mounted. For local development with models,
+set DRIVE_ALLOW_EXPERIMENTAL_MODELS=true (never for live public traffic).
+The model loader checks SHA-256 per artifact against the manifest and
+loads only artifacts produced by the controlled training pipeline.
+ /healthz returns models_ready=false,
 and all model predictions return 503 until explicitly trained and provisioned.
 
 ## Historical data for training
