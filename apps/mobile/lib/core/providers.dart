@@ -8,9 +8,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/auth/data/auth_repository.dart';
 import '../features/trip_services/data/trip_services_repository.dart';
+import '../features/rentals/data/rental_repository.dart';
 
 final tripServicesRepositoryProvider = Provider<TripServicesRepository>((ref) {
   return TripServicesRepository(
+    firestore: ref.watch(firestoreProvider),
+    functions: ref.watch(functionsProvider),
+  );
+});
+
+final rentalRepositoryProvider = Provider<RentalRepository>((ref) {
+  return RentalRepository(
     firestore: ref.watch(firestoreProvider),
     functions: ref.watch(functionsProvider),
   );
