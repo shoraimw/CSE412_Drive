@@ -45,10 +45,13 @@ test("Full Phase 2 backend scenario: auth, quote, match, rental locks and SOS", 
   const rider = await identity("signUp", "drive-rider@example.test");
   const driver = await identity("signUp", "drive-driver@example.test");
   const owner = await identity("signUp", "drive-owner@example.test");
+  const otherAdmin = await identity("signUp", "drive-admin-2@example.test");
 
   await getAuth().setCustomUserClaims(admin.uid, {admin: true});
+  await getAuth().setCustomUserClaims(otherAdmin.uid, {admin: true});
   await getAuth().setCustomUserClaims(driver.uid, {driver: true});
   const adminSession = await identity("signInWithPassword", "drive-admin@example.test");
+  const otherAdminSession = await identity("signInWithPassword", "drive-admin-2@example.test");
   const driverSession = await identity("signInWithPassword", "drive-driver@example.test");
 
   const rate = (baseMinor, perKmMinor, perMinuteMinor, minMinor, serviceFeeMinor) => ({
@@ -222,6 +225,38 @@ test("Full Phase 2 backend scenario: auth, quote, match, rental locks and SOS", 
   const sameCase = await call("openServiceDispute", rider.token, disputePayload);
   assert.equal(sameCase.disputeId, dispute.disputeId);
   await denied("openServiceDispute", owner.token, disputePayload);
+  // Phase 8 second pass: authenticated clients cannot claim reviewer ownership.
+  const triagePayload = {
+    disputeId: dispute.disputeId, expectedStatus: "open",
+    priority: "high", assignment: "take",
+    reason: "Taking ownership of this reported payment support case."
+  };
+  await denied("triageServiceDispute", rider.token, triagePayload);
+  const ownership = await call("triageServiceDispute", adminSession.token, triagePayload);
+  assert.equal(ownership.priority, "high");
+  assert.equal(ownership.financialAction, false);
+  assert.equal(ownership.emergencyAlertSent, false);
+  let triaged = await getFirestore().doc("serviceDisputes/" + dispute.disputeId).get();
+  assert.equal(triaged.get("assignedTo"), admin.uid);
+  assert.equal(triaged.get("priority"), "high");
+  await denied("triageServiceDispute", otherAdminSession.token, {
+    ...triagePayload, assignment: "take",
+    reason: "A different reviewer must not take an already owned case."
+  });
+  await denied("triageServiceDispute", otherAdminSession.token, {
+    ...triagePayload, assignment: "release",
+    reason: "Another administrator cannot release someone else's case."
+  });
+  await call("triageServiceDispute", adminSession.token, {
+    ...triagePayload, priority: "normal", assignment: "release",
+    reason: "Returning the case to the unassigned support queue."
+  });
+  triaged = await getFirestore().doc("serviceDisputes/" + dispute.disputeId).get();
+  assert.equal(triaged.get("assignedTo"), null);
+  assert.equal(triaged.get("priority"), "normal");
+  const triageEvents = await getFirestore().collection("auditEvents")
+    .where("caseId", "==", dispute.disputeId).get();
+  assert.equal(triageEvents.docs.filter(doc => doc.get("type") === "service_dispute_triage").length, 2);
   await denied("reviewServiceDispute", rider.token, {
     disputeId: dispute.disputeId, expectedStatus: "open",
     nextStatus: "in_review",
@@ -253,6 +288,9 @@ test("Full Phase 2 backend scenario: auth, quote, match, rental locks and SOS", 
     "serviceDisputes/" + dispute.disputeId).get();
   assert.equal(caseDoc.get("refundStatus"), "not_processed");
   assert.equal(caseDoc.get("status"), "resolved");
+  await denied("triageServiceDispute", adminSession.token, triagePayload);
+  assert.equal((await getFirestore().doc("serviceDisputes/" + dispute.disputeId).get())
+    .get("status"), "resolved");
 
   const rentalCase = await call("openServiceDispute", owner.token, {
     serviceType: "rental", serviceId: reused.bookingId, topic: "service",
@@ -268,4 +306,29 @@ test("Full Phase 2 backend scenario: auth, quote, match, rental locks and SOS", 
     identifier: "drive-admin@example.test"
   });
 
+  // Phase 8 second pass: pricing publication is server-authorized, atomic,
+  // audited, and refuses a stale administrator's loaded configuration.
+  const loadedPricing = await getFirestore().doc("pricingConfigs/demo-bdt-v1").get();
+  const vehicles = loadedPricing.get("vehicles");
+  const firstPublication = {
+    version: "demo-bdt-v2", expectedActiveVersion: "demo-bdt-v1", vehicles
+  };
+  await denied("publishPricingConfig", rider.token, firstPublication);
+  const published = await call("publishPricingConfig", adminSession.token, firstPublication);
+  assert.equal(published.published, true);
+  assert.equal(published.version, "demo-bdt-v2");
+  await denied("publishPricingConfig", otherAdminSession.token, {
+    version: "demo-bdt-v3", expectedActiveVersion: "demo-bdt-v1", vehicles
+  });
+  const currentConfig = await getFirestore().doc("appConfig/public").get();
+  assert.equal(currentConfig.get("activePricingVersion"), "demo-bdt-v2");
+  assert.equal((await getFirestore().doc("pricingConfigs/demo-bdt-v1").get())
+    .get("active"), false);
+  assert.equal((await getFirestore().doc("pricingConfigs/demo-bdt-v2").get())
+    .get("active"), true);
+  assert.equal((await getFirestore().doc("pricingConfigs/demo-bdt-v3").get())
+    .exists, false);
+  const pricingAudits = await getFirestore().collection("auditEvents")
+    .where("type", "==", "pricing_published").get();
+  assert.equal(pricingAudits.docs.filter(doc => doc.get("version") === "demo-bdt-v2").length, 1);
 });
