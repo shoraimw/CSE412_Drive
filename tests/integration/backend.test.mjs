@@ -1,9 +1,9 @@
-import {test} from "node:test";
+import {test, after} from "node:test";
 import assert from "node:assert/strict";
 import {createRequire} from "node:module";
 
 const useFnPackages = createRequire(new URL("../../services/functions/package.json", import.meta.url));
-const {initializeApp, getApps} = useFnPackages("firebase-admin/app");
+const {initializeApp, getApps, deleteApp} = useFnPackages("firebase-admin/app");
 const {getAuth} = useFnPackages("firebase-admin/auth");
 const {getFirestore} = useFnPackages("firebase-admin/firestore");
 const {getDatabase} = useFnPackages("firebase-admin/database");
@@ -20,7 +20,8 @@ if (!getApps().length) initializeApp({projectId,
 async function identity(method, email) {
   const response = await fetch(authEndpoint + method + "?key=demo-key", {
     method: "POST", headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({email, password: "StrongDemoPass123!", returnSecureToken: true})
+    body: JSON.stringify({email, password: "StrongDemoPass123!", returnSecureToken: true}),
+    signal: AbortSignal.timeout(25000)
   });
   const result = await response.json();
   assert.equal(response.ok, true, JSON.stringify(result));
@@ -31,7 +32,8 @@ async function call(name, token, data) {
     method: "POST", headers: {
       "Content-Type": "application/json", "Authorization": "Bearer " + token
     },
-    body: JSON.stringify({data})
+    body: JSON.stringify({data}),
+    signal: AbortSignal.timeout(25000)
   });
   const result = await response.json();
   if (!response.ok) throw new Error(name + ": " + JSON.stringify(result));
@@ -40,6 +42,12 @@ async function call(name, token, data) {
 async function denied(name, token, data) {
   await assert.rejects(() => call(name, token, data));
 }
+// Close emulated Admin SDK handles so Node test runners can exit cleanly.
+after(async () => {
+  getDatabase().goOffline();
+  await getFirestore().terminate();
+  await Promise.all(getApps().map(app => deleteApp(app)));
+});
 test("Full Phase 2 backend scenario: auth, quote, match, rental locks and SOS", async () => {
   const admin = await identity("signUp", "drive-admin@example.test");
   const rider = await identity("signUp", "drive-rider@example.test");
