@@ -112,6 +112,10 @@ service cloud.firestore {
         (signedIn() && resource.data.uid == request.auth.uid);
       allow write: if false;
     }
+    match /auditEvents/{auditId} {
+      allow get, list: if isAdmin();
+      allow write: if false;
+    }
     match /appConfig/{configId} {
       allow get: if configId == 'public';
       allow list, write: if false;
