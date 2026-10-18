@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers.dart';
 import '../../../core/widgets/drive_widgets.dart';
+import '../../support/presentation/open_dispute_dialog.dart';
 
 class TripCheckoutScreen extends ConsumerStatefulWidget {
   const TripCheckoutScreen({super.key, required this.rideId});
@@ -144,6 +145,17 @@ class _CheckoutState extends ConsumerState<TripCheckoutScreen> {
                 ));
               },
             ),
+            const SizedBox(height: 14),
+            Card(child: ListTile(
+              leading: const Icon(Icons.support_agent_outlined),
+              title: const Text('Need help with this trip?'),
+              subtitle: const Text('Private support case; not a refund or SOS.'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => showServiceDisputeDialog(
+                context: context, ref: ref, serviceType: 'ride',
+                serviceId: widget.rideId,
+              ),
+            )),
             const SizedBox(height: 14),
             StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
               stream: ratingStream,
