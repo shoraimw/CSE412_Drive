@@ -39,6 +39,8 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
   RidePoint? destination;
   String category = 'car';
   RideQuote? quote;
+  Map<String, dynamic>? mlReport;
+  bool mlWorking = false;
   bool working = false;
   String? bookingRide;
   bool pinPickupNext = false;
@@ -69,11 +71,31 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
     try {
       final newQuote = await ref.read(riderRepositoryProvider)
           .getFareQuote(pickup!, destination!, category);
-      if (mounted) setState(() => quote = newQuote);
+      if (mounted) setState(() {
+        quote = newQuote;
+        mlReport = null;
+      });
     } catch (error) {
       if (mounted) showDriveError(context, error);
     } finally {
       if (mounted) setState(() => working = false);
+    }
+  }
+
+  Future<void> showMlInsights() async {
+    final selected = quote;
+    if (mlWorking || selected == null || selected.isExpired) return;
+    setState(() {mlWorking = true; mlReport = null;});
+    try {
+      final result = await ref.read(riderRepositoryProvider)
+          .mlInsights(selected.id);
+      if (mounted && quote?.id == selected.id) {
+        setState(() => mlReport = result);
+      }
+    } catch (error) {
+      if (mounted) showDriveError(context, error);
+    } finally {
+      if (mounted) setState(() => mlWorking = false);
     }
   }
 
@@ -303,6 +325,31 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
                       if (quote!.warning != null)
                         Padding(padding: const EdgeInsets.only(top: 6),
                           child: Text(quote!.warning!)),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: mlWorking || quote!.isExpired
+                            ? null : showMlInsights,
+                        icon: const Icon(Icons.auto_graph),
+                        label: Text(mlWorking
+                            ? 'Loading experimental insights…'
+                            : 'Preview experimental ML insights'),
+                      ),
+                      if (mlReport != null) ...[
+                        const SizedBox(height: 6),
+                        Text('ML status: ${mlReport!['modelStatus']}'),
+                        if (mlReport!['insights'] is Map) ...[
+                          Text('Historical ETA model: '
+                              '${((mlReport!['insights'] as Map)['eta'] as Map)['estimate']} min'),
+                          Text('Historical observed fare estimate '
+                              '(not payable): '
+                              '${((mlReport!['insights'] as Map)['historical_fare'] as Map)['estimate']} minor units'),
+                        ],
+                        const Text(
+                          'Experimental only. Demand and traffic inputs are '
+                          'proxies, not live measurements. Payment continues '
+                          'to use the server fare shown above.',
+                        ),
+                      ],
                       const SizedBox(height: 14),
                       FilledButton.icon(
                         onPressed: working || quote!.isExpired ? null : book,

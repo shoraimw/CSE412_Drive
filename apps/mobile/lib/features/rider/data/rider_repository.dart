@@ -55,6 +55,9 @@ class RiderRepository {
     return RideQuote.fromJson(value, vehicleType);
   }
 
+  Future<Map<String, dynamic>> mlInsights(String quoteId) =>
+      _call('getMlTripInsights', {'quoteId': quoteId});
+
   Future<String> requestRide(RideQuote quote, String idempotencyKey) async {
     if (quote.isExpired) throw StateError('Your fare quote has expired.');
     final result = await _call('requestRide', {
