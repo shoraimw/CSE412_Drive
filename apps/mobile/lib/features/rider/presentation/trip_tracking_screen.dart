@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -49,7 +47,9 @@ class _TripTrackingScreenState extends ConsumerState<TripTrackingScreen> {
     setState(() => working = true);
     try {
       await widget.repository.cancel(widget.rideId);
-      if (mounted) widget.onFinished();
+      if (mounted) {
+        widget.onFinished();
+      }
     } catch (e) {
       if (mounted) showDriveError(context, e);
     } finally {
