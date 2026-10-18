@@ -12,6 +12,7 @@ import '../../onboarding/presentation/owner_application_screen.dart';
 import '../../rider/presentation/rider_home_screen.dart';
 import '../../driver/presentation/driver_screen.dart';
 import '../../trip_services/presentation/notifications_screen.dart';
+import '../../rentals/presentation/owner_rentals_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key, required this.user, required this.profile});
@@ -71,7 +72,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         uid: widget.user.uid,
         profile: driverData ?? const <String, dynamic>{},
       ),
-      if (ownerApproved) const _OwnerPanel(),
+      if (ownerApproved) OwnerRentalsScreen(uid: widget.user.uid),
       _AccountPanel(
         user: widget.user, profile: widget.profile,
         driverStatus: driverData?['approvalStatus']?.toString(),
@@ -129,40 +130,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         destinations: destinations,
       ),
     );
-  }
-}
-
-class _OwnerPanel extends ConsumerWidget {
-  const _OwnerPanel();
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = AppLocalizations.of(context);
-    final uid = ref.watch(firebaseAuthProvider).currentUser?.uid;
-    if (uid == null) return const DriveLoading();
-    final stream = ref.watch(firestoreProvider).collection('vehicles')
-        .where('ownerId', isEqualTo: uid).snapshots();
-    return ListView(padding: const EdgeInsets.all(24), children: [
-      DriveHeader(title: t.ownerCenter, subtitle: t.ownerReady),
-      const SizedBox(height: 24),
-      Text(t.vehicleRentals, style: Theme.of(context).textTheme.titleLarge),
-      const SizedBox(height: 12),
-      StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: stream,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) return Text(snapshot.error.toString());
-          if (!snapshot.hasData) return const LinearProgressIndicator();
-          if (snapshot.data!.docs.isEmpty) return Text(t.ownerNext);
-          return Column(children: snapshot.data!.docs.map((doc) {
-            final vehicle = doc.data();
-            return Card(child: ListTile(
-              leading: const Icon(Icons.directions_car),
-              title: Text(vehicle['model']?.toString() ?? doc.id),
-              subtitle: Text(vehicle['approvalStatus']?.toString() ?? t.pending),
-            ));
-          }).toList());
-        },
-      ),
-    ]);
   }
 }
 

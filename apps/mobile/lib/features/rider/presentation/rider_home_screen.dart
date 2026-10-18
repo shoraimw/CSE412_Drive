@@ -13,6 +13,8 @@ import '../../../core/widgets/drive_widgets.dart';
 import '../data/rider_repository.dart';
 import '../domain/route_models.dart';
 import 'trip_tracking_screen.dart';
+import '../../rentals/presentation/rental_marketplace_screen.dart';
+import '../../../l10n/app_localizations.dart';
 
 final riderRepositoryProvider = Provider<RiderRepository>((ref) =>
     RiderRepository(
@@ -180,7 +182,7 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
         final history = snapshot.data!
             .where((ride) => ride.data()['status'] == 'completed')
             .take(8).toList();
-        return _bookRideForm(history, repo);
+        return _bookRideForm(history, repo, uid);
       },
     );
   }
@@ -188,10 +190,22 @@ class _RiderHomeScreenState extends ConsumerState<RiderHomeScreen> {
   Widget _bookRideForm(
     List<QueryDocumentSnapshot<Map<String, dynamic>>> history,
     RiderRepository repo,
+    String uid,
   ) {
     final theme = Theme.of(context);
     return LayoutBuilder(builder: (context, constraints) {
       return ListView(children: [
+        Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Card(child: ListTile(
+            leading: const Icon(Icons.car_rental_outlined),
+            title: Text(AppLocalizations.of(context).rentalMarketplace),
+            subtitle: Text(AppLocalizations.of(context).rentalMarketplaceSubtitle),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => RentalMarketplaceScreen(uid: uid),
+            )),
+          )),
+        ),
         SizedBox(
           height: constraints.maxHeight * 0.42,
           child: _mapsReady
