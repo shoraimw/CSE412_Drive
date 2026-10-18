@@ -105,3 +105,9 @@ Run the pure, offline smoke policy tests using:
 ```powershell
 node --test tests/qa/*.test.mjs
 ```
+
+## 9. Formal acceptance and handoff
+
+The [22-case QA checklist](PHASE_9_ACCEPTANCE_TEST_PLAN.md) and [blank release sign-off form](PHASE_9_RELEASE_SIGNOFF.md) are ready. GitHub [issue #3](https://github.com/shoraimw/CSE412_Drive/issues/3) tracks all cloud-account / real-device / App Check / WAF / rollback prerequisites. **These cannot be marked PASS without an actual staged deployment, named tester and evidence.**
+
+**Current phase outcome:** CI/source-complete, external acceptance **BLOCKED**. The Phase 10 [final report](PHASE_10_FINAL_REPORT.md), [presentation](PHASE_10_PRESENTATION.md) and [demo/viva](PHASE_10_DEMO_VIVA.md) are being prepared as an honest academic handoff, not a production release certificate.
