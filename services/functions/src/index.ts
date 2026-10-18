@@ -258,7 +258,18 @@ export const setDriverAvailability = onCall(options, async request => {
   const profile = await db.doc("driverProfiles/" + uid).get();
   requirePresent(profile.exists && profile.get("approvalStatus") === "approved",
     "Admin-approved driver profile required.");
-  await profile.ref.update({online: input.online, updatedAt: FieldValue.serverTimestamp()});
+  await db.runTransaction(async tx => {
+    const [fresh, busy] = await Promise.all([
+      tx.get(profile.ref), tx.get(db.doc("driverBusy/" + uid))
+    ]);
+    requirePresent(fresh.get("approvalStatus") === "approved",
+      "Driver approval is required.");
+    requirePresent(input.online || !busy.exists,
+      "Finish or cancel your current trip before going offline.");
+    tx.update(profile.ref, {
+      online: input.online, updatedAt: FieldValue.serverTimestamp()
+    });
+  });
   if (!input.online) await rtdb.ref("driverLocations/" + uid).remove();
   return {online: input.online};
 });
@@ -433,6 +444,11 @@ export const dispatchNearbyDrivers = onCall(options, async request => {
         rideId: input.rideId, driverId: candidate.uid, riderId: uid,
         status: "pending", score: candidate.score,
         expiresAt: Timestamp.fromMillis(Date.now() + 45000),
+        pickup: freshRide.get("pickup"), destination: freshRide.get("destination"),
+        vehicleType: freshRide.get("vehicleType"),
+        distanceMeters: freshRide.get("distanceMeters"),
+        durationSeconds: freshRide.get("durationSeconds"),
+        estimatedFareMinor: (freshRide.get("fare") as {totalMinor: number}).totalMinor,
         createdAt: FieldValue.serverTimestamp()
       });
       targets.push(candidate.uid);
@@ -516,7 +532,9 @@ export const advanceRide = onCall(options, async request => {
     tx.update(rideRef, {
       status: input.toStatus, updatedAt: FieldValue.serverTimestamp(),
       ...(input.toStatus === "completed" ? {
-        finalFare: ride.get("fare"), finalFareIsProvisional: true,
+        finalFare: ride.get("fare"),
+        finalFareIsProvisional: ride.get("provisional") === true,
+        settlementStatus: "not_settled",
         completedAt: FieldValue.serverTimestamp()
       } : {})
     });
