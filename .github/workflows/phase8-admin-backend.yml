@@ -1,0 +1,33 @@
+name: Phase 8 Admin backend unit checks
+on:
+  push:
+    paths:
+      - "services/functions/src/admin_ops.ts"
+      - "services/functions/src/admin_policy.ts"
+      - "services/functions/src/index.ts"
+      - "services/functions/tests/admin_policy.test.cjs"
+      - "services/functions/package.json"
+      - ".github/workflows/phase8-admin-backend.yml"
+  pull_request:
+    paths:
+      - "services/functions/src/admin_ops.ts"
+      - "services/functions/src/admin_policy.ts"
+      - "services/functions/src/index.ts"
+      - "services/functions/tests/admin_policy.test.cjs"
+      - "services/functions/package.json"
+      - ".github/workflows/phase8-admin-backend.yml"
+jobs:
+  admin-authorization-and-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Functions dependencies
+        run: npm --prefix services/functions install --no-audit --no-fund
+      - name: TypeScript build
+        run: npm --prefix services/functions run build
+      - name: Test support case policy
+        run: node --test services/functions/tests/admin_policy.test.cjs
