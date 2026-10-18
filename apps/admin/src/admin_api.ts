@@ -42,7 +42,7 @@ const activitySources: Record<ActivityTab,string> = {
   safety:"safetyIncidents",
   audit:"auditEvents",
 };
-const fromData = (id:string, data:DocumentData):AdminRow=>({id,...data});
+const fromData = (id:string, data:DocumentData):AdminRow=>({...data,id});
 
 export function pendingStream(tab:QueueTab,
   onRows:(rows:AdminRow[])=>void,

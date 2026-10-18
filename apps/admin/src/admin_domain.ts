@@ -82,7 +82,7 @@ export function validateFarePlan(version: string, plan: FarePlan): string[] {
   return problems;
 }
 
-export function recentStatusCounts(rows: Array<{status?: unknown}>):
+export function recentStatusCounts(rows: ReadonlyArray<Record<string, unknown>>):
     Record<string, number> {
   const result: Record<string, number> = {};
   for (const row of rows) {

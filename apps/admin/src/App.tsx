@@ -324,18 +324,19 @@ export default function App() {
   const [notice,setNotice]=useState("");
 
   useEffect(()=>{
-    if (!auth) {setChecking(false);return;}
+    const authClient=auth;
+    if (!authClient) {setChecking(false);return;}
     let mounted=true;
-    const unsubscribe=onAuthStateChanged(auth,async current=>{
+    const unsubscribe=onAuthStateChanged(authClient,async current=>{
       if(!mounted)return;
       setUser(current);setAdmin(false);setChecking(!!current);setRows([]);
       if(!current)return;
       try{
         const token=await current.getIdTokenResult(true);
-        if(!mounted||auth.currentUser?.uid!==current.uid)return;
+        if(!mounted||authClient.currentUser?.uid!==current.uid)return;
         if(token.claims.admin!==true){
           setError("This account does not have a trusted administrator claim.");
-          await signOut(auth!);
+          await signOut(authClient);
           return;
         }
         setAdmin(true);setError("");
