@@ -191,13 +191,13 @@ class _RentalMarketplaceScreenState
     final maxMinor = maxRate == null ? null : (maxRate * 100).round();
     return docs.where((doc) {
       final data = doc.data();
-      if (vehicleType != 'all' && data['type'] != vehicleType) return false;
+      if (vehicleType != 'all' && data['type'] != vehicleType) { return false; }
       if (area.isNotEmpty &&
           !(data['area']?.toString().toLowerCase().contains(area) ?? false)) {
         return false;
       }
       final rate = (data['rentalRatePerHourMinor'] as num?)?.toInt() ?? 0;
-      if (maxMinor != null && rate > maxMinor) return false;
+      if (maxMinor != null && rate > maxMinor) { return false; }
       return true;
     }).toList();
   }
@@ -207,7 +207,7 @@ class _RentalMarketplaceScreenState
     final rate = (data['rentalRatePerHourMinor'] as num?)?.toInt() ?? 0;
     final ownVehicle = data['ownerId']?.toString() == widget.uid;
     final selectedWindow = window;
-    final estimated = selectedWindow == null ? null : selectedWindow.totalMinor(rate);
+    final estimated = selectedWindow?.totalMinor(rate);
     final type = data['type']?.toString() ?? '';
     final typeLabel = type == 'bike' ? t.bike : type == 'premium' ? t.premium : t.car;
     return Card(
@@ -353,10 +353,12 @@ class _RentalMarketplaceScreenState
                   child: CircularProgressIndicator()),
               ); }
               final found = filterVehicles(snapshot.data!.docs);
-              if (found.isEmpty) return Padding(
-                padding: const EdgeInsets.all(20),
-                child: Text(t.rentalNoVehicles),
-              );
+              if (found.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(t.rentalNoVehicles),
+                );
+              }
               return Column(children: [
                 for (final doc in found) vehicleCard(doc.data(), doc.id),
               ]);
@@ -369,9 +371,9 @@ class _RentalMarketplaceScreenState
           StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: bookings,
             builder: (context, snapshot) {
-              if (snapshot.hasError) return Text(snapshot.error.toString());
+              if (snapshot.hasError) { return Text(snapshot.error.toString()); }
               if (!snapshot.hasData) return const LinearProgressIndicator();
-              if (snapshot.data!.docs.isEmpty) return Text(t.rentalNoBookings);
+              if (snapshot.data!.docs.isEmpty) { return Text(t.rentalNoBookings); }
               return Column(children: [
                 for (final doc in snapshot.data!.docs) bookingCard(doc),
               ]);

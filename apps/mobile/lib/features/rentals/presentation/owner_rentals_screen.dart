@@ -86,9 +86,9 @@ class _OwnerRentalsScreenState extends ConsumerState<OwnerRentalsScreen> {
           StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: vehicles,
             builder: (context, snapshot) {
-              if (snapshot.hasError) return Text(snapshot.error.toString());
+              if (snapshot.hasError) { return Text(snapshot.error.toString()); }
               if (!snapshot.hasData) return const LinearProgressIndicator();
-              if (snapshot.data!.docs.isEmpty) return Text(t.ownerNext);
+              if (snapshot.data!.docs.isEmpty) { return Text(t.ownerNext); }
               return Column(children: [
                 for (final doc in snapshot.data!.docs)
                   Card(child: ListTile(
@@ -113,7 +113,7 @@ class _OwnerRentalsScreenState extends ConsumerState<OwnerRentalsScreen> {
             builder: (context, snapshot) {
               if (snapshot.hasError) return Text(snapshot.error.toString());
               if (!snapshot.hasData) return const LinearProgressIndicator();
-              if (snapshot.data!.docs.isEmpty) return Text(t.rentalNoBookings);
+              if (snapshot.data!.docs.isEmpty) { return Text(t.rentalNoBookings); }
               return Column(children: [
                 for (final doc in snapshot.data!.docs)
                   _ownerBookingCard(doc, t),
