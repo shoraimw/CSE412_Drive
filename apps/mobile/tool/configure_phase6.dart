@@ -93,7 +93,30 @@ subprojects {
     xml = xml.replaceRange(pos + 1, pos + 1,
         '\n    <uses-permission android:name="$permission"/>');
   }
+  const fcmMetadata = '<meta-data '
+      'android:name="firebase_messaging_installation_id_enabled" '
+      'android:value="true" />';
+  if (!xml.contains('firebase_messaging_installation_id_enabled')) {
+    if (!xml.contains('</application>')) {
+      throw const FormatException('Android manifest has no application tag.');
+    }
+    xml = xml.replaceFirst('</application>',
+        '    $fcmMetadata\n    </application>');
+  }
   manifest.writeAsStringSync(xml);
+
+  // Firebase Messaging 17 uses Firebase Installation IDs for FCM registration.
+  // The iOS FID setting opts into the matching registration workflow.
+  final iosPlist = File('ios/Runner/Info.plist');
+  if (iosPlist.existsSync()) {
+    var plist = iosPlist.readAsStringSync();
+    if (!plist.contains('FirebaseMessagingInstallationIdEnabled')) {
+      plist = plist.replaceFirst('</dict>',
+        '    <key>FirebaseMessagingInstallationIdEnabled</key>\n'
+        '    <true/>\n</dict>');
+      iosPlist.writeAsStringSync(plist);
+    }
+  }
 
   stdout.writeln('DRIVE Android host, file_picker Kotlin target, app label and notification permission configured.');
   stdout.writeln('Enable APNs/Push capability in Xcode for real iOS notifications.');
