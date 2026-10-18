@@ -67,3 +67,46 @@ test("Admin with trusted claim can inspect protected records", async () => {
   await assertSucceeds(getDoc(doc(admin, "driverApplications/driver1")));
   await assertFails(setDoc(doc(admin, "driverApplications/driver1"), {status: "approved"}));
 });
+
+test("Trip chat read access is participant-only and all direct writes are denied", async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), "rides/ridechat12"), {
+      riderId: "alice", driverId: "driver1", status: "accepted"
+    });
+    await setDoc(doc(context.firestore(), "rides/ridechat12/messages/m1"), {
+      rideId: "ridechat12", senderId: "alice", recipientId: "driver1",
+      text: "Meet by the gate"
+    });
+  });
+  const rider = env.authenticatedContext("alice").firestore();
+  const driver = env.authenticatedContext("driver1").firestore();
+  const outsider = env.authenticatedContext("mallory").firestore();
+  await assertSucceeds(getDoc(doc(rider, "rides/ridechat12/messages/m1")));
+  await assertSucceeds(getDoc(doc(driver, "rides/ridechat12/messages/m1")));
+  await assertFails(getDoc(doc(outsider, "rides/ridechat12/messages/m1")));
+  await assertFails(setDoc(doc(rider, "rides/ridechat12/messages/m2"),
+    {text: "Direct write must be refused"}));
+});
+test("Trip payment is visible to payer and driver, never mutable by clients", async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), "payments/ride12345"), {
+      payerId: "alice", driverId: "driver1", status: "cash_due",
+      method: "cash", amountMinor: 12000
+    });
+    await setDoc(doc(context.firestore(), "notifications/n1"), {
+      uid: "alice", title: "New trip status"
+    });
+  });
+  const alice = env.authenticatedContext("alice").firestore();
+  const driver = env.authenticatedContext("driver1").firestore();
+  const other = env.authenticatedContext("mallory").firestore();
+  await assertSucceeds(getDoc(doc(alice, "payments/ride12345")));
+  await assertSucceeds(getDoc(doc(driver, "payments/ride12345")));
+  await assertFails(getDoc(doc(other, "payments/ride12345")));
+  await assertFails(updateDoc(doc(alice, "payments/ride12345"),
+    {status: "paid_test"}));
+  await assertSucceeds(getDoc(doc(alice, "notifications/n1")));
+  await assertFails(getDoc(doc(other, "notifications/n1")));
+  await assertFails(setDoc(doc(alice, "notifications/hacked"),
+    {uid: "alice", title: "Forged notification"}));
+});

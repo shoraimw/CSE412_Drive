@@ -130,6 +130,18 @@ test("Full Phase 2 backend scenario: auth, quote, match, rental locks and SOS", 
     rideId: booking.rideId, type: "sos", note: "Automated test incident"
   });
   assert.equal(incident.notified, false);
+  // Phase 6 chat is limited to active assigned trip participants.
+  const messageId = "08d7ee1a-cf85-4be7-a72c-5412ff6aef9c";
+  const message = {rideId: booking.rideId,
+    text: "I am waiting near the pickup point", clientMessageId: messageId};
+  const chat = await call("sendRideMessage", rider.token, message);
+  assert.equal(chat.stored, true);
+  const sameMessage = await call("sendRideMessage", rider.token, message);
+  assert.equal(sameMessage.messageId, chat.messageId);
+  await denied("sendRideMessage", owner.token, {
+    rideId: booking.rideId, text: "Not my trip",
+    clientMessageId: "d28504d7-c2be-4070-9ee5-377f2f35ba41"
+  });
   for (const toStatus of ["driver_arriving", "in_progress", "completed"]) {
     const step = await call("advanceRide", driverSession.token, {rideId: booking.rideId, toStatus});
     assert.equal(step.status, toStatus);
@@ -137,4 +149,34 @@ test("Full Phase 2 backend scenario: auth, quote, match, rental locks and SOS", 
   const finalRide = await getFirestore().doc("rides/" + booking.rideId).get();
   assert.equal(finalRide.get("status"), "completed");
   assert.equal(finalRide.get("finalFareIsProvisional"), true);
+
+  // Phase 6: participant review, cash due, and driver acknowledgement.
+  await denied("sendRideMessage", rider.token, {
+    rideId: booking.rideId, text: "Chat after completed ride",
+    clientMessageId: "a4dbe0d9-2b71-4cf0-bf38-1b478c1072d1"
+  });
+  await denied("rateCompletedRide", owner.token, {
+    rideId: booking.rideId, stars: 5, comment: ""
+  });
+  const rating = await call("rateCompletedRide", rider.token, {
+    rideId: booking.rideId, stars: 5, comment: "Excellent"
+  });
+  assert.equal(rating.recorded, true);
+  await denied("rateCompletedRide", rider.token, {
+    rideId: booking.rideId, stars: 1, comment: "Duplicate"
+  });
+  const driverRating = await call("rateCompletedRide", driverSession.token, {
+    rideId: booking.rideId, stars: 4, comment: ""
+  });
+  assert.equal(driverRating.recorded, true);
+  await denied("chooseCashForRide", owner.token, {rideId: booking.rideId});
+  await call("chooseCashForRide", rider.token, {rideId: booking.rideId});
+  const received = await call("reportCashReceived", driverSession.token,
+    {rideId: booking.rideId});
+  assert.equal(received.status, "cash_reported_received");
+  const payment = await getFirestore().doc("payments/" + booking.rideId).get();
+  assert.equal(payment.get("method"), "cash");
+  assert.equal(payment.get("status"), "cash_reported_received");
+  assert.equal(payment.get("externalVerified"), false);
+
 });
