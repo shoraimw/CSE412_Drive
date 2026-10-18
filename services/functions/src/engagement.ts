@@ -208,8 +208,10 @@ export const deliverPushNotification = onDocumentCreated(
         "messaging/invalid-registration-token"
       ];
       await Promise.all(response.responses.map(async (result, i) => {
-        if (!result.success && invalid.includes(result.error?.code || "")) {
-          await tokens.docs[i].ref.delete();
+        const tokenDoc = tokens.docs[i];
+        if (tokenDoc && !result.success &&
+            invalid.includes(result.error?.code || "")) {
+          await tokenDoc.ref.delete();
         }
       }));
       await doc.ref.update({
