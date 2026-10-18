@@ -41,3 +41,6 @@ apps/mobile/ios/Flutter/flutter_export_environment.sh
 # Generated private Maps SDK key files
 apps/mobile/android/app/src/main/res/values/drive_maps_keys.xml
 apps/mobile/ios/Flutter/DriveMapsKeys.xcconfig
+
+# Local Google Maps API secret for Functions emulator
+services/functions/.secret.local
