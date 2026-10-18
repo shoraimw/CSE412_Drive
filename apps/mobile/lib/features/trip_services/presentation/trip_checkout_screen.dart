@@ -124,11 +124,9 @@ class _CheckoutState extends ConsumerState<TripCheckoutScreen> {
                               'Stripe TEST checkout opened. Return here to check the signed webhook result.'),
                           child: const Text('Open Stripe TEST checkout'),
                         ),
-                        if (false)
-                          const Text('Stripe TEST checkout requires server setup; no client key needed.'),
                       ],
                       if (rider && payment?['method'] == 'stripe_test' &&
-                          ['initializing', 'requires_payment', 'processing',
+                          ['initializing', 'checkout_open',
                             'payment_failed'].contains(status))
                         OutlinedButton(
                           onPressed: busy ? null : () => action(

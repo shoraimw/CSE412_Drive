@@ -85,8 +85,8 @@ class TripServicesRepository {
     }
   }
 
-  /// Firebase Messaging 17 supplies a Firebase Installation ID (FID),
-  /// not the deprecated legacy registration token.
+  /// Firebase Messaging 17 supplies a Firebase Installation ID (FID).
+  /// Server uses firebase-admin 14+ and the FCM fids target; the FID is not a legacy token.
   Future<StreamSubscription<String>?> startPushRegistration() async {
     if (DriveFirebaseConfig.emulator || kIsWeb) return null;
     if (!Platform.isAndroid && !Platform.isIOS) return null;
