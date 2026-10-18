@@ -738,6 +738,7 @@ export const publishPricingConfig = onCall(options, async request => {
   const adminId = administrator(request);
   const input = parse(z.object({
     version: z.string().regex(/^[A-Za-z0-9_-]{4,48}$/),
+    expectedActiveVersion: z.string().max(48),
     vehicles: z.object({
       bike: fareRatesSchema, car: fareRatesSchema, premium: fareRatesSchema
     }).strict()
@@ -750,6 +751,8 @@ export const publishPricingConfig = onCall(options, async request => {
     ]);
     requirePresent(!proposed.exists, "Pricing version already exists.");
     const previousVersion = config.get("activePricingVersion") as string | undefined;
+    requirePresent((previousVersion || "") === input.expectedActiveVersion,
+      "Pricing changed since you opened this page. Reload current rates.");
     let previousRef: DocumentReference | null = null;
     let previousExists = false;
     if (previousVersion && previousVersion !== input.version) {

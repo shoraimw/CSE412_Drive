@@ -363,7 +363,9 @@ function Pricing() {
     if (issues.length||confirmation!=="PUBLISH "+version||busy) return;
     setBusy(true);setError("");setNotice("");
     try {
-      const result=await callAdmin("publishPricingConfig",{version,vehicles:plan});
+      const result=await callAdmin("publishPricingConfig",{
+        version,expectedActiveVersion:active,vehicles:plan
+      });
       setNotice("Pricing version "+text(result.version)+" published. Existing accepted quotes are not silently rewritten.");
       setVersion("");setConfirmation("");await refresh();
     } catch(e) {
@@ -373,7 +375,8 @@ function Pricing() {
   return <Card>
     <div className="section-heading"><div>
       <h2>Versioned BDT pricing</h2>
-      <p>All amounts in minor units. Changes apply to new quotes through server validation.</p>
+      <p>All amounts in minor units. Changes apply to new quotes through server validation.
+        Concurrent administrator edits are rejected if the active pricing version changed.</p>
     </div><span className="pill neutral">Current: {active||"not seeded"}</span></div>
     {loading?<p>Loading current pricing…</p>:<>
       {!loaded&&<p className="alert warning">
