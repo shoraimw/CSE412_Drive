@@ -4,6 +4,7 @@ import {
   onAuthStateChanged, signInWithEmailAndPassword, signOut, type User
 } from "firebase/auth";
 import {auth, firebaseReady} from "./firebase";
+import PrivateDocuments from "./PrivateDocuments";
 import {
   menu, pendingStream, activityRows, loadOverview,
   callAdmin, activePricing, queueTab, activityTab, calendarTime,
@@ -159,10 +160,7 @@ function Queue({tab,rows,onReview}:{
           {field(row,tab==="vehicles"?"ownerId":"uid","Account ID")}
           <div><dt>Record ID</dt><dd className="code-compact">{shortId(row.id)}</dd></div>
         </dl>
-        {tab==="drivers"&&<p className="muted small">
-          Driver documents must be reviewed through an authorized private review process,
-          not downloaded or publicly exposed from this list.
-        </p>}
+        {tab==="drivers"&&<PrivateDocuments uid={row.id} documentPaths={row.documentPaths}/>}
         <div className="card-actions">
           <button className="primary" onClick={()=>onReview({tab,row,approve:true})}>Approve</button>
           <button className="danger" onClick={()=>onReview({tab,row,approve:false})}>Reject</button>
