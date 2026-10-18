@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/drive_widgets.dart';
+import '../../../core/providers.dart';
 import '../data/trip_services_repository.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
@@ -27,7 +28,9 @@ class _NotificationState extends ConsumerState<NotificationsScreen> {
         if (snapshot.hasError) return DriveErrorView(
           message: snapshot.error.toString(),
           onRetry: () => setState(() {}), retryLabel: 'Retry');
-        if (!snapshot.hasData) return const DriveLoading();
+        if (!snapshot.hasData) {
+          return const DriveLoading();
+        }
         final records = snapshot.data!.docs;
         if (records.isEmpty) {
           return const Center(child: Padding(

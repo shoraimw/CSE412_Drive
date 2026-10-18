@@ -57,7 +57,9 @@ class _CheckoutState extends ConsumerState<TripCheckoutScreen> {
           if (trip.hasError) return DriveErrorView(
             message: trip.error.toString(),
             onRetry: () => setState(() {}), retryLabel: 'Retry');
-          if (!trip.hasData) return const DriveLoading();
+          if (!trip.hasData) {
+            return const DriveLoading();
+          }
           final ride = trip.data!.data();
           if (ride == null) return const Center(child: Text('Ride not found.'));
           if (ride['status'] != 'completed') {

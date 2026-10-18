@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers.dart';
 import '../../../core/widgets/drive_widgets.dart';
-import '../data/trip_services_repository.dart';
 
 class TripChatScreen extends ConsumerStatefulWidget {
   const TripChatScreen({super.key, required this.rideId});
