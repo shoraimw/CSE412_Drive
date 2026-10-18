@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +10,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../onboarding/presentation/driver_application_screen.dart';
 import '../../onboarding/presentation/owner_application_screen.dart';
 import '../../rider/presentation/rider_home_screen.dart';
+import '../../driver/presentation/driver_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key, required this.user, required this.profile});
@@ -44,8 +44,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final ownerApproved = ownerData?['approvalStatus'] == 'approved';
     final views = <Widget>[
       const RiderHomeScreen(),
-      if (driverApproved) _DriverPanel(
-        driverData: driverData ?? const <String, dynamic>{},
+      if (driverApproved) DriverScreen(
+        uid: widget.user.uid,
+        profile: driverData ?? const <String, dynamic>{},
       ),
       if (ownerApproved) const _OwnerPanel(),
       _AccountPanel(
@@ -117,56 +118,6 @@ class _FeatureTile extends StatelessWidget {
       ),
     ),
   );
-}
-
-class _DriverPanel extends ConsumerStatefulWidget {
-  const _DriverPanel({required this.driverData});
-  final Map<String, dynamic> driverData;
-  @override
-  ConsumerState<_DriverPanel> createState() => _DriverPanelState();
-}
-
-class _DriverPanelState extends ConsumerState<_DriverPanel> {
-  bool busy = false;
-  Future<void> toggle(bool value) async {
-    if (busy) return;
-    setState(() => busy = true);
-    try {
-      await ref.read(functionsProvider)
-          .httpsCallable('setDriverAvailability').call({'online': value});
-    } on FirebaseFunctionsException catch (e) {
-      if (mounted) showDriveError(context, e.message ?? e);
-    } finally {
-      if (mounted) setState(() => busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
-    final online = widget.driverData['online'] == true;
-    return ListView(padding: const EdgeInsets.all(24), children: [
-      DriveHeader(title: t.driverCenter, subtitle: t.driverReady),
-      const SizedBox(height: 20),
-      Card(child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(children: [
-          Icon(online ? Icons.check_circle : Icons.pause_circle,
-            color: online ? DrivePalette.green : DrivePalette.warning, size: 36),
-          const SizedBox(width: 12),
-          Expanded(child: Text(online ? t.online : t.offline,
-              style: Theme.of(context).textTheme.titleLarge)),
-          Switch.adaptive(
-            value: online, onChanged: busy ? null : toggle,
-            activeTrackColor: DrivePalette.green,
-          ),
-        ]),
-      )),
-      const SizedBox(height: 18),
-      _FeatureTile(icon: Icons.navigation_outlined, title: t.upcoming,
-        subtitle: t.driverNext),
-    ]);
-  }
 }
 
 class _OwnerPanel extends ConsumerWidget {
