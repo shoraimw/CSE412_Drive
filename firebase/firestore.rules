@@ -112,6 +112,14 @@ service cloud.firestore {
         (signedIn() && resource.data.uid == request.auth.uid);
       allow write: if false;
     }
+    match /serviceDisputes/{disputeId} {
+      // Dispute narrative is visible only to its reporter and trusted staff.
+      // Neither a rider nor an administrator may modify financial records
+      // or settlement status directly through Firestore.
+      allow get, list: if isAdmin() ||
+        (signedIn() && resource.data.openedBy == request.auth.uid);
+      allow create, update, delete: if false;
+    }
     match /auditEvents/{auditId} {
       allow get, list: if isAdmin();
       allow write: if false;

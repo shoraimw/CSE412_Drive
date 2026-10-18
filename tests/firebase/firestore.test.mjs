@@ -125,3 +125,28 @@ test("Phase 8 audit history is admin-readable and client-write-protected", async
   await assertFails(getDocs(collection(rider, "auditEvents")));
   await assertFails(setDoc(doc(administrator, "auditEvents/forged"), {type:"fake"}));
 });
+
+test("Phase 8 disputes are reporter/admin private and client-write-protected", async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(),
+      "serviceDisputes/ride_rideABCDEF1_alice"), {
+      serviceId: "rideABCDEF1", serviceType: "ride",
+      openedBy: "alice", topic: "payment", status: "open",
+      refundStatus: "not_processed", description: "Cash issue"
+    });
+  });
+  const alice = env.authenticatedContext("alice").firestore();
+  const admin = env.authenticatedContext("staff1", {admin: true}).firestore();
+  const driver = env.authenticatedContext("driver1").firestore();
+  const id = "serviceDisputes/ride_rideABCDEF1_alice";
+  await assertSucceeds(getDoc(doc(alice, id)));
+  await assertSucceeds(getDoc(doc(admin, id)));
+  await assertFails(getDoc(doc(driver, id)));
+  await assertFails(getDocs(collection(driver, "serviceDisputes")));
+  await assertFails(setDoc(doc(alice, "serviceDisputes/ride_forged1234_alice"), {
+    openedBy: "alice", status: "resolved", refundStatus: "paid"
+  }));
+  await assertFails(updateDoc(doc(admin, id), {
+    status: "resolved", refundStatus: "paid"
+  }));
+});
