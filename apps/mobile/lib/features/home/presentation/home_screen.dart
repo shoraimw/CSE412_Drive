@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers.dart';
-import '../../../core/theme/drive_theme.dart';
 import '../../../core/widgets/drive_widgets.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../onboarding/presentation/driver_application_screen.dart';
@@ -99,25 +98,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
-}
-
-class _FeatureTile extends StatelessWidget {
-  const _FeatureTile({required this.icon, required this.title,
-    required this.subtitle});
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(8),
-      child: ListTile(
-        leading: CircleAvatar(child: Icon(icon)),
-        title: Text(title), subtitle: Text(subtitle),
-        trailing: const Icon(Icons.lock_clock_outlined),
-      ),
-    ),
-  );
 }
 
 class _OwnerPanel extends ConsumerWidget {
