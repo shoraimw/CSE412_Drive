@@ -1,0 +1,63 @@
+name: Phase 9 Manual Staging Release
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_deploy:
+        description: 'Type STAGING ONLY (never deploys production)'
+        required: true
+        type: string
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: drive-staging-release
+  cancel-in-progress: false
+jobs:
+  staging-release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: drive-staging
+    env:
+      DRIVE_STAGING_PROJECT_ID: ${{ vars.DRIVE_STAGING_PROJECT_ID }}
+      DRIVE_STAGING_ADMIN_SITE_ID: ${{ vars.DRIVE_STAGING_ADMIN_SITE_ID }}
+      VITE_FIREBASE_API_KEY: ${{ vars.DRIVE_STAGING_FIREBASE_API_KEY }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.DRIVE_STAGING_FIREBASE_AUTH_DOMAIN }}
+      VITE_FIREBASE_PROJECT_ID: ${{ vars.DRIVE_STAGING_PROJECT_ID }}
+      VITE_FIREBASE_APP_ID: ${{ vars.DRIVE_STAGING_FIREBASE_APP_ID }}
+      VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.DRIVE_STAGING_STORAGE_BUCKET }}
+      VITE_RECAPTCHA_ENTERPRISE_SITE_KEY: ${{ vars.DRIVE_STAGING_RECAPTCHA_SITE_KEY }}
+      VITE_FIREBASE_USE_EMULATORS: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Enforce manual confirmation and staging-only project/site
+        env:
+          CONFIRM_DEPLOY: ${{ inputs.confirm_deploy }}
+          DRIVE_STAGING_APPROVED: ${{ vars.DRIVE_STAGING_APPROVED }}
+        run: node tests/qa/check_staging_target.mjs
+      - name: Authenticate to dedicated staging GCP service account
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.DRIVE_STAGING_WIF_PROVIDER }}
+          service_account: ${{ secrets.DRIVE_STAGING_DEPLOYER_SA }}
+      - name: Install backend dependencies and compile
+        run: |
+          npm install --no-audit --no-fund
+          npm --prefix services/functions install --no-audit --no-fund
+          npm --prefix services/functions run build
+      - name: Install, test and bundle admin website
+        working-directory: apps/admin
+        run: |
+          npm install --no-audit --no-fund
+          npm test
+          npm run build
+          npm run audit:bundle
+      - name: Deploy trusted backend only to isolated staging
+        run: npx firebase-tools deploy --only functions,firestore:rules,database,storage --project "$DRIVE_STAGING_PROJECT_ID" --non-interactive
+      - name: Assign isolated admin Hosting target
+        run: npx firebase-tools target:apply hosting drive-admin "$DRIVE_STAGING_ADMIN_SITE_ID" --project "$DRIVE_STAGING_PROJECT_ID"
+      - name: Publish admin website to staging only
+        run: npx firebase-tools deploy --config firebase.admin.json --only hosting:drive-admin --project "$DRIVE_STAGING_PROJECT_ID" --non-interactive

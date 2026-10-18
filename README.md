@@ -33,6 +33,7 @@ See the [requirements traceability matrix](docs/REQUIREMENTS_TRACEABILITY.md) fo
 - [Phase 6: Cash and Stripe TEST payments, chat, notifications and ratings](docs/PHASE_6_PAYMENTS_CHAT_NOTIFICATIONS.md)
 - [Phase 7: Experimental ML, Cloudflare edge, scalability and abuse protection](docs/PHASE_7_ML_SCALABILITY_SECURITY.md)
 - [Phase 8: React admin operations, safety review and pricing](docs/PHASE_8_ADMIN_OPERATIONS.md)
+- [Phase 9: CI quality gates, QA matrix and staging release](docs/PHASE_9_QA_RELEASE.md)
 - [Vehicle Rental requirement implementation](docs/FR3_VEHICLE_RENTAL.md)
 - [Admin dashboard source](apps/admin/README.md)
 - [Functional requirement traceability matrix](docs/REQUIREMENTS_TRACEABILITY.md)
@@ -57,3 +58,5 @@ npm run emulators
 Details, Windows PowerShell instructions, security boundaries, and the API reference are in the [Phase 2 guide](docs/PHASE_2_FIREBASE.md). A real Firebase project and deployment are not created automatically.
 
 **Phase 8 redo (second pass):** Admin support cases now have audited priority/assignment triage, loaded-page operational filters and safe concurrent pricing version publication. See [Phase 8 Operations Guide](docs/PHASE_8_ADMIN_OPERATIONS.md).
+
+**Phase 9 started (18 Oct 2026):** The full cross-platform CI quality gate, tracked-file secret-pattern check and manually approved, staging-only deployment workflow are in the repository. CI results, live Firebase configuration, two-device tests and staging sign-off must be verified before marking the app ready to release. See [Phase 9 guide](docs/PHASE_9_QA_RELEASE.md).

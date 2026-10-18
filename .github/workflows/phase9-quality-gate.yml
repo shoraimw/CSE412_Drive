@@ -1,0 +1,114 @@
+name: Phase 9 Quality Gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  repository-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test tests/qa/*.test.mjs
+      - run: node tests/qa/scan_tracked_secrets.mjs
+
+  admin-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+      - run: npm run build
+      - run: npm run audit:bundle
+
+  firebase-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: drive-firebase-emulators-v1
+      - run: npm install --no-audit --no-fund
+      - run: npm --prefix services/functions install --no-audit --no-fund
+      - name: Unit, rules and callable integration test suite
+        run: npm test
+
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter create --project-name drive_mobile --platforms=android,ios .
+      - run: flutter pub get
+      - run: dart run tool/configure_phase6.dart
+      - run: flutter gen-l10n
+      - run: flutter analyze
+      - run: flutter test
+
+  ml:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e ".[test]"
+        working-directory: services/ml
+      - run: python -m compileall -q app && python -m pytest -q
+        working-directory: services/ml
+
+  cloudflare-edge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: infra/cloudflare
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+
+  quality-gate:
+    if: always()
+    needs: [repository-safety, admin-web, firebase-backend, mobile, ml, cloudflare-edge]
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      JOB_RESULTS: ${{ toJSON(needs) }}
+    steps:
+      - name: Deny release when any upstream check is unsuccessful
+        run: |
+          node -e 'const jobs=JSON.parse(process.env.JOB_RESULTS); const failed=Object.entries(jobs).filter(([name,job])=>job.result!=="success"); for(const [name,job] of Object.entries(jobs)) console.log(name+": "+job.result); if(failed.length) process.exit(1);'
