@@ -31,10 +31,14 @@ const initialConfig = JSON.parse(process.env.FIREBASE_CONFIG || "{}") as {
 };
 initializeApp({
   ...initialConfig,
-  databaseURL: process.env.FIREBASE_DATABASE_URL || initialConfig.databaseURL ||
+  // FIREBASE_CONFIG may carry a *different* default RTDB namespace when
+  // emulators run. Prefer the explicitly selected -default-rtdb test database
+  // while emulating, so reads, rules and indexed geohash dispatch agree.
+  // Production still uses configured Database URL without changing providers.
+  databaseURL: process.env.FIREBASE_DATABASE_URL ||
     (process.env.FIREBASE_DATABASE_EMULATOR_HOST ?
-      "https://" + (process.env.GCLOUD_PROJECT || "demo-drive-local") +
-        "-default-rtdb.firebaseio.com" : undefined),
+      "https://" + (process.env.GCLOUD_PROJECT || initialConfig.projectId || "demo-drive-local") +
+        "-default-rtdb.firebaseio.com" : initialConfig.databaseURL),
   storageBucket: process.env.FIREBASE_STORAGE_BUCKET || initialConfig.storageBucket ||
     (process.env.FIREBASE_STORAGE_EMULATOR_HOST ?
       (process.env.GCLOUD_PROJECT || "demo-drive-local") + ".appspot.com" : undefined)
