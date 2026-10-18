@@ -1,5 +1,5 @@
 export {reviewSafetyIncident, openServiceDispute, reviewServiceDispute,
-  lookupAdminUser} from "./admin_ops";
+  lookupAdminUser, triageServiceDispute} from "./admin_ops";
 // Phase 6 server-controlled payments, messaging, ratings and notifications.
 export {
   sendRideMessage, rateCompletedRide, registerPushToken, unregisterPushToken,

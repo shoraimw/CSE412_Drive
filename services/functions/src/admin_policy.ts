@@ -17,3 +17,11 @@ export function disputeDocumentId(
   }
   return serviceType + "_" + serviceId + "_" + openerUid;
 }
+
+export type CasePriority = "low" | "normal" | "high";
+export function initialDisputePriority(topic: string): CasePriority {
+  return topic === "safety" ? "high" : "normal";
+}
+export function canEditCasePriority(status: CaseStatus): boolean {
+  return status === "open" || status === "in_review";
+}

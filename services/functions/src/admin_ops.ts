@@ -2,7 +2,7 @@ import {getFirestore, FieldValue, Timestamp} from "firebase-admin/firestore";
 import {getAuth} from "firebase-admin/auth";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {z} from "zod";
-import {canTransitionCase, disputeDocumentId} from "./admin_policy";
+import {canTransitionCase, canEditCasePriority, initialDisputePriority, disputeDocumentId} from "./admin_policy";
 
 const inputSchema = z.object({
   incidentId: z.string().min(8).max(128),
@@ -105,7 +105,8 @@ export const openServiceDispute = onCall({
     tx.create(disputeRef, {
       serviceType: input.serviceType, serviceId: input.serviceId,
       openedBy: uid, topic: input.topic, description: input.description,
-      status: "open", outcome: "not_determined",
+      status: "open", priority: initialDisputePriority(input.topic),
+      outcome: "not_determined",
       refundStatus: "not_processed",
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp()
@@ -223,4 +224,60 @@ export const lookupAdminUser = onCall({
     displayName: profile.get("displayName") || null,
     locale: profile.get("locale") || null
   };
+});
+
+/** Audit-backed internal triage; never a refund or emergency dispatch. */
+const triageSchema = z.object({
+  disputeId: z.string().regex(/^(ride|rental)_[A-Za-z0-9_-]{8,128}_[A-Za-z0-9_-]{4,128}$/),
+  expectedStatus: z.enum(["open", "in_review"]),
+  priority: z.enum(["low", "normal", "high"]),
+  assignment: z.enum(["take", "release", "unchanged"]),
+  reason: z.string().trim().min(20).max(800)
+}).strict();
+
+export const triageServiceDispute = onCall({
+  region: "asia-south1", maxInstances: 8,
+  enforceAppCheck: process.env.DRIVE_ENFORCE_APP_CHECK === "true"
+}, async request => {
+  const adminId = request.auth?.uid;
+  if (!adminId || request.auth.token.admin !== true) {
+    throw new HttpsError("permission-denied", "Trusted admin required.");
+  }
+  const parsed = triageSchema.safeParse(request.data);
+  if (!parsed.success) throw new HttpsError("invalid-argument", "Invalid triage.");
+  const data = parsed.data;
+  if (!canEditCasePriority(data.expectedStatus)) {
+    throw new HttpsError("failed-precondition", "Case is closed.");
+  }
+  const db = getFirestore();
+  await db.runTransaction(async tx => {
+    const ref = db.doc("serviceDisputes/" + data.disputeId);
+    const snap = await tx.get(ref);
+    if (!snap.exists) throw new HttpsError("not-found", "Case not found.");
+    if (snap.get("status") !== data.expectedStatus) {
+      throw new HttpsError("failed-precondition", "Case changed; refresh.");
+    }
+    const assignedTo = snap.get("assignedTo") as string | null | undefined;
+    if (data.assignment === "release" && assignedTo !== adminId) {
+      throw new HttpsError("permission-denied", "Only the assigned reviewer can release.");
+    }
+    if (data.assignment === "take" && assignedTo && assignedTo !== adminId) {
+      throw new HttpsError("failed-precondition", "Another reviewer owns this case.");
+    }
+    const nextAssignee = data.assignment === "take" ? adminId
+      : data.assignment === "release" ? null : assignedTo || null;
+    tx.update(ref, {
+      priority: data.priority, assignedTo: nextAssignee,
+      updatedAt: FieldValue.serverTimestamp()
+    });
+    tx.create(db.collection("auditEvents").doc(), {
+      type: "service_dispute_triage", actorId: adminId,
+      caseId: data.disputeId, fromPriority: snap.get("priority") || "normal",
+      toPriority: data.priority, fromAssignee: assignedTo || null,
+      toAssignee: nextAssignee, reason: data.reason,
+      createdAt: FieldValue.serverTimestamp()
+    });
+  });
+  return {priority: data.priority, financialAction: false,
+    emergencyAlertSent: false};
 });

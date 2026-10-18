@@ -1,6 +1,6 @@
 const {test} = require("node:test");
 const assert = require("node:assert/strict");
-const {canTransitionCase,disputeDocumentId} = require("../lib/admin_policy");
+const {canTransitionCase,disputeDocumentId,initialDisputePriority,canEditCasePriority} = require("../lib/admin_policy");
 
 test("support cases must be taken into review before a resolution",()=>{
   assert.equal(canTransitionCase("open","resolved"),false);
@@ -17,4 +17,13 @@ test("support case identity is deterministic and scoped to its opener",()=>{
   assert.equal(a,b);
   assert.notEqual(a,c);
   assert.throws(()=>disputeDocumentId("ride","bad/id","rider12345"));
+});
+
+test("safety disputes start high priority, closed cases cannot be reprioritized",()=>{
+  assert.equal(initialDisputePriority("safety"),"high");
+  assert.equal(initialDisputePriority("payment"),"normal");
+  assert.equal(canEditCasePriority("open"),true);
+  assert.equal(canEditCasePriority("in_review"),true);
+  assert.equal(canEditCasePriority("resolved"),false);
+  assert.equal(canEditCasePriority("dismissed"),false);
 });
