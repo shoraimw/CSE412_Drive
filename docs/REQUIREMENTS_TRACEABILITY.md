@@ -9,7 +9,7 @@ This matrix prevents the project from being described as complete merely because
 | PDF order | Original requirement | Detailed SRS mapping | Current source status | Main remaining work |
 |---:|---|---|---|---|
 | 1 | Authentication & Security | FR-01 | **Implemented baseline / partial hardening** | Validate real Firebase configuration and device OTP/OAuth; suspicious-account detection and security review remain. |
-| 2 | User Management | FR-02–FR-04 | **Partial** | Complete profile/role/admin tools; owner listing editing/photos and full admin approval UI. |
+| 2 | User Management | FR-02–FR-04 | **Partial** | Phase 8 adds exact audited account lookup and driver/owner/vehicle approvals. Account suspension and staffed moderation, owner listing editing and listing-photo verification remain. |
 | 3 | Vehicle Rental | FR-05 | **Renter/owner UI, backend and admin approval source implemented; validation pending** | Run latest emulator tests, configure admin Firebase Web app, and smoke-test rental flows; rental payments remain in payment requirements. |
 | 4 | Smart Ride Booking | FR-06 | **Implemented in source; provider validation pending** | Test with real Google Maps/Routes keys and a real Firebase project. |
 | 5 | Smart Ride Match & Cost Sharing | FR-07–FR-08 | **Partial** | Nearby driver matching and offers exist; multi-passenger shared rides, capacity/detour rules and individual fare split remain. |
@@ -30,7 +30,7 @@ This matrix prevents the project from being described as complete merely because
 | FR-19 | Notifications | Private in-app records and best-effort FCM path exist; APNs/FCM credentials and real-device delivery are not yet verified. |
 | FR-20 | Ratings, reviews, history | Ride ratings and rider/driver trip history exist; rental reviews and full unified history remain. |
 | FR-21 | Driver earnings and payouts | Estimated gross from completed rides only; not net earnings, settlement or payout. |
-| FR-22 | Admin operations | Phase 8 React dashboard now includes driver/owner/vehicle approvals, audited safety triage, pricing version publishing, private document review and read-only ride/rental/payment history. Refunds, disputes, suspensions and full operational staffing remain. |
+| FR-22 | Admin operations | Phase 8 React dashboard includes driver/owner/vehicle approvals, exact audited user lookup, participant-opened dispute review/priority/assignment, safety triage, versioned pricing, private document review and read-only operations history. Real refunds/chargebacks, suspensions and staffed moderation remain. |
 | FR-23 | Admin analytics | Phase 8 shows only bounded recent samples (maximum 40 per collection) and status distribution. Whole-platform totals, data warehouse and operational BI remain. |
 | FR-24 | ML and anomaly insights | Phase 7 FastAPI experimental ML source, temporal training and anomaly baseline exist; no deployed, approved real-data ML models. |
 | FR-25 | Localization and accessibility | English/Bangla and themes exist; newly added rental screens include English/Bangla labels. Full accessibility review remains. |
