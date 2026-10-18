@@ -61,7 +61,7 @@ void main() {
     if (!text.contains('<key>GMSApiKey</key>')) {
       text = text.replaceFirst('</dict>',
           '    <key>GMSApiKey</key>\n'
-          '    <string>$(DRIVE_IOS_MAPS_KEY)</string>\n'
+          '    <string>\$(DRIVE_IOS_MAPS_KEY)</string>\n'
           '</dict>');
     }
     if (!text.contains('NSLocationWhenInUseUsageDescription')) {
