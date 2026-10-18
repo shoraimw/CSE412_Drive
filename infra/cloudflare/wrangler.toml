@@ -1,0 +1,21 @@
+name = "drive-public-api-edge"
+main = "src/index.js"
+compatibility_date = "2026-10-15"
+workers_dev = false
+
+# These namespace IDs must be changed to unique positive IDs in YOUR Cloudflare
+# account before deployment. Do NOT deploy a production route before you have
+# WAF rules, an origin firewall policy and Firebase App Check configured.
+[[ratelimits]]
+name = "PUBLIC_IP_LIMIT"
+namespace_id = "1001"
+simple = { limit = 180, period = 60 }
+
+[[ratelimits]]
+name = "USER_LIMIT"
+namespace_id = "1002"
+simple = { limit = 30, period = 60 }
+
+# Set required secrets via wrangler secret put DRIVE_ORIGIN_URL and
+# wrangler secret put DRIVE_ORIGIN_AUTH. The origin must validate this secret
+# AND Firebase Auth/App Check, and reject direct requests that bypass edge.
