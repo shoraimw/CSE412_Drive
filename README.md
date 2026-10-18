@@ -12,18 +12,16 @@ The specification is based on the team's Fall 2026 Requirement Analysis and the 
 - **Python ML service:** matching/ranking experiments, fare and ETA prediction, demand forecasting, and anomaly signals.
 - **External integrations:** Google Maps Platform and payment adapters (Stripe test mode first; cash supported).
 
-## Phased delivery
+## Delivery status
 
-1. **Phase 1 — SRS, use cases, UML, data model, and architecture** (current)
-2. Phase 2 — Firebase project setup, Firestore rules, indexes, and Cloud Functions
-3. Phase 3 — Flutter foundation and authentication
-4. Phase 4 — Rider booking, maps, and trip tracking
-5. Phase 5 — Driver and vehicle-owner workflows
-6. Phase 6 — Payments, chat, notifications, ratings, and safety workflows
-7. Phase 7 — Matching, routing, fare/ETA prediction, demand forecasting, and anomaly detection
-8. Phase 8 — React admin dashboard
-9. Phase 9 — Tests, CI/CD, security checks, and deployment
-10. Phase 10 — Final report, presentation, and demo plan
+Implementation is tracked against the submitted requirement PDF and the detailed SRS. A server function alone does not mean a requirement is complete; UI, backend authorization, tests and required external configuration must also be validated.
+
+- **Implemented source foundations:** authentication/roles, Firebase backend, rider booking, driver workflow/GPS, trip communications, ride payments in cash/Stripe TEST, ratings and notification records.
+- **Current requirement:** Vehicle Rental (third feature in the submitted PDF; detailed SRS FR-05). Renter marketplace and owner listing/booking screens are implemented in source and are undergoing CI/integration validation.
+- **Android APK:** CI is being configured to build an emulator-demo APK. A fully connected APK needs your Firebase project configuration; Stripe test mode additionally needs test keys and a matching signed webhook secret.
+- **Remaining system surfaces:** React admin dashboard, rental approval workflow UI, shared-ride cost splitting, multi-currency payment abstraction, Women Safety Mode, complete emergency notification delivery, Tourist Mode and ML services.
+
+See the [requirements traceability matrix](docs/REQUIREMENTS_TRACEABILITY.md) for the current state and honest gaps.
 
 ## Repository documentation
 
@@ -33,6 +31,8 @@ The specification is based on the team's Fall 2026 Requirement Analysis and the 
 - [Phase 4: Rider maps, route quotes, booking and tracking](docs/PHASE_4_RIDER.md)
 - [Phase 5: Driver GPS, offers, navigation and estimated gross](docs/PHASE_5_DRIVER.md)
 - [Phase 6: Cash and Stripe TEST payments, chat, notifications and ratings](docs/PHASE_6_PAYMENTS_CHAT_NOTIFICATIONS.md)
+- [Vehicle Rental requirement implementation](docs/FR3_VEHICLE_RENTAL.md)
+- [Functional requirement traceability matrix](docs/REQUIREMENTS_TRACEABILITY.md)
 
 ## Important implementation boundary
 

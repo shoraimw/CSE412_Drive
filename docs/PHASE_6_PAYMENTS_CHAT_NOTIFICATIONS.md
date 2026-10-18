@@ -341,4 +341,4 @@ Delivered source: secure payment callables, signed Stripe TEST webhook, cash ack
 
 Validation status is determined by the latest actual GitHub Actions runs, not asserted from source availability alone. Device-specific live integration and provider credentials are outside the committed university demo source.
 
-**Next: Phase 7 — Machine Learning for fare prediction, driver matching demand, fraud/anomaly detection, and route insights.**
+**Next requirement: Vehicle Rental** (third feature in the submitted PDF; detailed SRS FR-05). Continue through the source requirements before moving to the later ML phase.
