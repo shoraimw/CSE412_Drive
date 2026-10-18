@@ -328,7 +328,7 @@ For a staging deployment:
 
 ### Operations and finance
 
-- View last 60 ride/rental records, recent payment methods and recorded payment statuses.
+- Inspect cursor-paginated ride/rental records (30 per loaded page), recent payment methods and recorded payment statuses. These are bounded operational pages, not a global financial export.
 - No client-side action can force paid_test, report income as verified, cancel a live ride, issue a refund or mutate a rental lock.
 - Cash receipt is a driver declaration, not independently verified.
 - Stripe TEST payments are for demonstration, not real funds. Full refund/dispute/commission and payouts require a separate regulated implementation.
@@ -338,14 +338,14 @@ For a staging deployment:
 - A case in open state can only be moved to in_review.
 - From in_review, a reviewer may mark resolved or dismissed with a note.
 - Never claim an emergency contact was notified. The storage field alertDeliveryStatus remains not_configured until a real verified delivery provider and consent workflow are built.
-- Audit History shows most recent server-originated events, bounded at 60 records.
+- Audit History shows server-originated events in cursor-paginated batches of 30; older events require an explicit page load.
 
 ## 7. Functional coverage and remaining gaps
 
 Phase 8 improves requirement group 2 (User Management), group 3 (Vehicle Rental administration), and operational aspects of requirements 10 and 11 (Women Safety and incident oversight), plus SRS FR-22/FR-23.
 
 **Scope limitations intentionally preserved**:
-- FR-22: complete refund operations, payment disputes, account suspensions, full staffed moderation and verification policy not implemented.
+- FR-22: participant-submitted disputes and audited review/ownership are implemented, but provider-side payment chargebacks, actual refunds, account suspensions, staffed moderation and verification policy are not implemented.
 - FR-23: Overview counts are last 40 records per collection, NOT totals. No BigQuery/warehouse or distributed aggregate counters yet.
 - Safety: incident records/review are NOT emergency dispatch.
 - Full multi-currency, shared-passenger cost splitting, tourist travel plans and production AI route optimization remain unfinished.
@@ -446,7 +446,7 @@ Refresh the admin ID token or sign out/in after claim creation. Never grant a li
 - [x] Firebase local emulator and App Check web configuration switches
 - [x] Unit tests, build workflow, backend and rules test sources
 - [ ] Live staging Firebase, Storage CORS and private-document review validation
-- [ ] Firebase emulator suite passing CI with new security tests
+- [ ] Latest full Firebase emulator suite passing CI, including new triage and stale-pricing scenarios
 - [ ] Whole-platform analytics warehouse and distributed aggregate counters
 - [ ] Real provider refunds, payout ledger, dispute financial resolution, 24/7 emergency response
 - [ ] Security review, multi-admin separation of duties, audit retention and scale testing
