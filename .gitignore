@@ -37,3 +37,7 @@ apps/mobile/android/local.properties
 apps/mobile/android/key.properties
 apps/mobile/ios/Flutter/Generated.xcconfig
 apps/mobile/ios/Flutter/flutter_export_environment.sh
+
+# Generated private Maps SDK key files
+apps/mobile/android/app/src/main/res/values/drive_maps_keys.xml
+apps/mobile/ios/Flutter/DriveMapsKeys.xcconfig
