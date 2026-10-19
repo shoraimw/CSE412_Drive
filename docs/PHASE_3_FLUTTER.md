@@ -101,7 +101,27 @@ flutter devices
 flutter run --dart-define=DRIVE_EMULATOR=true
 ~~~
 
-The app uses synthetic Firebase configuration for the **demo-drive-local** emulator project; no real API keys are needed. Authentication, functions, Firestore and Storage clients automatically use local emulators. The code picks 10.0.2.2 on Android Emulator and 127.0.0.1 on iOS Simulator.
+There are two supported local modes:
+
+- **Demo-only mode:** run without a config file. The app uses synthetic values and the `demo-drive-local` project. This is useful for local email/password testing; native Google sign-in needs real OAuth/Firebase configuration.
+- **Google sign-in + local backend emulators:** keep the ignored file `apps/mobile/config/firebase.local.json` with your Firebase app configuration. The app uses its API key, app ID, sender ID and project ID, while Auth, Functions, Firestore, Realtime Database and Storage are redirected to local emulators. The project ID must match between the app config and the emulator command.
+
+In Terminal A (repository root), use the same project ID as the local config and give Functions discovery enough time (the value is **milliseconds**, so 60000 means 60 seconds):
+
+~~~powershell
+$env:FUNCTIONS_DISCOVERY_TIMEOUT = "60000"
+$cfg = Get-Content ".\\apps\\mobile\\config\\firebase.local.json" -Raw | ConvertFrom-Json
+npm.cmd --prefix services/functions run build
+npx.cmd firebase-tools emulators:start --project $cfg.FIREBASE_PROJECT_ID --only auth,firestore,database,storage,functions
+~~~
+
+In Terminal B (`apps/mobile`):
+
+~~~powershell
+flutter run --dart-define=DRIVE_EMULATOR=true --dart-define-from-file=config/firebase.local.json
+~~~
+
+Keep `DRIVE_EMULATOR=true` enabled whenever using this local emulator setup. Do not run tests against production services. The Android Emulator reaches the workstation at `10.0.2.2`; iOS Simulator uses `127.0.0.1`.
 
 For a physical device on a trusted development LAN, use an accessible workstation address with explicit opt-in:
 
