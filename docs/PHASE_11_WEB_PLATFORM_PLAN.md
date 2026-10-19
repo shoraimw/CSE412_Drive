@@ -1,12 +1,18 @@
 # DRIVE — Phase 11: Customer-Facing Web Platform
 
-**Status:** Planned scope; not implemented or deployed yet.
+**Status:** Initial React/Vite customer-web foundation committed; CI pending. Not deployed and not yet full requirement-complete.
 **Repository:** `shoraimw/CSE412_Drive`
 **Purpose:** Add a customer-facing, responsive website to the existing DRIVE system without duplicating the mobile app's database or creating a second source of truth.
 
 ## Product decision
 
-The existing `apps/admin` is the operations console. It is not the public rider website. The repository currently has no `apps/web` customer-facing application. Phase 11 adds that separately; Admin remains a separately protected application.
+The existing `apps/admin` is the operations console. It is not the public rider website. Phase 11 now adds `apps/web` as a separate customer-facing application; Admin remains a separately protected application.
+
+## Current implementation status (first slice)
+
+Committed source includes a responsive landing/ride/rental/trip UI, Firebase Web SDK bootstrap, email/password sign-up/sign-in and password reset, Google popup sign-in, Phone OTP flow, trusted `ensureProfile`, authenticated Places autocomplete/resolution, server-generated fare quotes, idempotent ride requests and dispatch attempt, approved rental listing browse/reservations/cancellation, own ride/payment subscriptions, cash choice and Stripe TEST checkout. Unit tests, Netlify SPA/security config, a setup README and a dedicated GitHub Actions test/build workflow are also included.
+
+This is an initial integration slice, not a full website release. Browser-based active-trip tracking/chat/ratings, complete account/profile UX, bilingual localization, driver/owner web portal, promotional codes, rental payment, live bKash/SSLCommerz, complete shared-ride/women safety/tourist workflows and production acceptance remain outstanding. GitHub Actions status must be checked for the current commit before claiming CI passed.
 
 ## Recommended stack
 
