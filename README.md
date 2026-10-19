@@ -23,6 +23,8 @@ Implementation is tracked against the submitted requirement PDF and the detailed
 
 See the [requirements traceability matrix](docs/REQUIREMENTS_TRACEABILITY.md) for the current state and honest gaps.
 
+- **Phase 11 (planned):** [Customer-facing web platform, shared Firebase backend, Netlify hosting and payment/security acceptance plan](docs/PHASE_11_WEB_PLATFORM_PLAN.md)
+
 ## Repository documentation
 
 - [Phase 1: SRS and Architecture](docs/PHASE_1_SRS_ARCHITECTURE.md)
