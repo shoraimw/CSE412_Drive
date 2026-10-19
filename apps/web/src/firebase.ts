@@ -46,4 +46,3 @@ if (app && useEmulators && localHost) {
   });
 }
 
-export {auth, db, functions};
