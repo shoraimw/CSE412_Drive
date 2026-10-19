@@ -20,7 +20,7 @@ Populate \`.env.local\` from your **Firebase Web app configuration** in a dedica
 ## Implemented in this first slice
 
 - Responsive DRIVE landing page and ride/rental/trip navigation.
-- Email/password sign-up/sign-in, Google popup sign-in and Phone OTP UI.
+- Email/password sign-up/sign-in, password reset, Google popup sign-in and Phone OTP UI.
 - Profile initialization via trusted \`ensureProfile\` Cloud Function.
 - Places autocomplete and resolution via existing authenticated callables.
 - Server-generated BDT fare quote and idempotent ride request, with driver dispatch attempt.

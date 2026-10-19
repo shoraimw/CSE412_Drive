@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useRef, useState, type FormEvent} from "react";
 import {
-  GoogleAuthProvider, RecaptchaVerifier, createUserWithEmailAndPassword,
+  GoogleAuthProvider, RecaptchaVerifier, createUserWithEmailAndPassword, sendPasswordResetEmail,
   onAuthStateChanged, sendEmailVerification, signInWithEmailAndPassword,
   signInWithPhoneNumber, signInWithPopup, signOut, updateProfile,
   type ConfirmationResult, type User
@@ -147,6 +147,17 @@ function AuthPanel({onClose}: {onClose: () => void}) {
     }
   }
 
+  async function resetPassword() {
+    if (!auth) { setError("Firebase setup is required before sign-in can work."); return; }
+    if (!email.trim()) { setError("Enter your email address first."); return; }
+    setBusy(true); setError("");
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      setError("If an account exists for that email, a password reset link has been sent.");
+    } catch (e) { setError(displayError(e)); }
+    finally { setBusy(false); }
+  }
+
   async function google() {
     if (!auth) { setError("Firebase setup is required before sign-in can work."); return; }
     setBusy(true); setError("");
@@ -184,6 +195,7 @@ function AuthPanel({onClose}: {onClose: () => void}) {
         {error && <div className="alert error" role="alert">{error}</div>}
         <button className="button primary full" type="submit" disabled={busy}>{busy ? "Please wait…" : mode === "signup" ? "Create account" : mode === "phone" ? confirmation ? "Verify code" : "Send OTP" : "Sign in"}</button>
       </form>
+      {mode === "signin" && <button type="button" className="text-button" disabled={busy} onClick={() => void resetPassword()}>Forgot password?</button>}
       {mode !== "phone" && <button className="button outline full google-button" disabled={busy} onClick={() => void google()}>Continue with Google</button>}
       <p className="tiny muted">Phone OTP requires Firebase Phone Authentication, authorized domains, SMS quota and App Check configuration. Google login requires the web domain to be authorized in Firebase.</p>
     </section>
