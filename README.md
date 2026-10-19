@@ -7,6 +7,7 @@ The specification is based on the team's Fall 2026 Requirement Analysis and the 
 ## Product surfaces
 
 - **Flutter mobile app:** role-aware experiences for riders, drivers, and vehicle owners.
+- **Customer-facing React website (Phase 11 foundation):** responsive ride quote/booking, rental marketplace, account authentication and test payment flows in `apps/web`, configured for Netlify; live staging credentials and acceptance still required.
 - **React admin dashboard:** audited approvals, support/dispute triage, pricing versions, read-only trip/rental/payment records and bounded recent analytics; promotions and automated refunds are not implemented.
 - **Firebase backend:** Authentication, Cloud Firestore, Realtime Database, Cloud Functions (TypeScript), Cloud Messaging, Storage, Remote Config, and App Check.
 - **Python ML service:** matching/ranking experiments, fare and ETA prediction, demand forecasting, and anomaly signals.
@@ -24,6 +25,8 @@ Implementation is tracked against the submitted requirement PDF and the detailed
 See the [requirements traceability matrix](docs/REQUIREMENTS_TRACEABILITY.md) for the current state and honest gaps.
 
 - **Phase 11 (planned):** [Customer-facing web platform, shared Firebase backend, Netlify hosting and payment/security acceptance plan](docs/PHASE_11_WEB_PLATFORM_PLAN.md)
+
+- **Phase 11 (in progress):** [Customer website setup and integration guide](apps/web/README.md) and [platform plan](docs/PHASE_11_WEB_PLATFORM_PLAN.md).
 
 ## Repository documentation
 
