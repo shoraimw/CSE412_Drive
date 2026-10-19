@@ -72,7 +72,7 @@ export function displayError(error: unknown): string {
     return "The required Firebase Cloud Function is not deployed to the configured project/region. Deploy the staging functions and retry.";
   }
   if (code === "functions/internal" || code === "internal") {
-    return "The DRIVE server failed while processing this request. For place search, check Firebase Functions logs for autocompletePlaces in asia-south1 and verify the GOOGLE_MAPS_SERVER_KEY secret, Places API (New), billing, and API-key restrictions. For fare estimates, also verify the active pricing configuration and Routes API.";
+    return "The DRIVE server failed while processing this request. For place search, check Cloud Functions logs for autocompletePlaces in asia-south1 and verify the GOOGLE_MAPS_SERVER_KEY secret, Places API (New), billing, and API-key restrictions. For fare estimates, also verify the active pricing configuration and Routes API.";
   }
   if (code === "functions/unknown" || code === "unknown") {
     return "The DRIVE backend returned an unknown error. Check Cloud Functions logs for the callable name and timestamp, then verify its secrets and required Firebase configuration.";
