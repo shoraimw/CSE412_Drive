@@ -86,6 +86,111 @@ export const resolvePlace = onCall(options, async (request) => {
   };
 });
 
+
+const touristCategory = z.enum([
+  "tourist_attraction", "museum", "park", "restaurant",
+  "lodging", "hospital", "pharmacy", "atm"
+]);
+
+export const discoverTouristPlaces = onCall(options, async request => {
+  requireAuth(request.auth?.uid);
+  const input = z.object({
+    center: z.object({lat: z.number().finite().min(-90).max(90), lng: z.number().finite().min(-180).max(180)}).strict(),
+    category: touristCategory,
+    radiusMeters: z.number().int().min(500).max(10000).default(5000),
+    languageCode: z.enum(["en", "bn"]).default("en")
+  }).strict().safeParse(request.data);
+  if (!input.success) throw new HttpsError("invalid-argument", "Choose a valid search area and category.");
+  const includedTypes: Record<z.infer<typeof touristCategory>, string[]> = {
+    tourist_attraction: ["tourist_attraction"],
+    museum: ["museum"],
+    park: ["park"],
+    restaurant: ["restaurant"],
+    lodging: ["lodging"],
+    hospital: ["hospital"],
+    pharmacy: ["pharmacy"],
+    atm: ["atm"]
+  };
+  const response = await googleJson("https://places.googleapis.com/v1/places:searchNearby", {
+    method: "POST",
+    headers: {"Content-Type": "application/json", "X-Goog-Api-Key": apiKey(),
+      "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount"},
+    body: JSON.stringify({
+      includedTypes: includedTypes[input.data.category],
+      maxResultCount: 12,
+      rankPreference: "POPULARITY",
+      locationRestriction: {circle: {
+        center: {latitude: input.data.center.lat, longitude: input.data.center.lng},
+        radius: input.data.radiusMeters
+      }},
+      languageCode: input.data.languageCode
+    })
+  });
+  const places = Array.isArray(response.places) ? response.places : [];
+  return {places: places.flatMap((raw) => {
+    if (!raw || typeof raw !== "object") return [];
+    const p = raw as Record<string, unknown>;
+    const location = p.location as Record<string, unknown> | undefined;
+    const display = p.displayName as Record<string, unknown> | undefined;
+    if (typeof p.id !== "string" || typeof location?.latitude !== "number" ||
+        typeof location?.longitude !== "number") return [];
+    return [{
+      placeId: p.id, name: String(display?.text || "Recommended place"),
+      address: String(p.formattedAddress || ""),
+      lat: location.latitude, lng: location.longitude,
+      types: Array.isArray(p.types) ? p.types.filter(x => typeof x === "string").slice(0, 8) : [],
+      ...(typeof p.rating === "number" ? {rating: p.rating} : {}),
+      ...(typeof p.userRatingCount === "number" ? {reviewCount: p.userRatingCount} : {})
+    }];
+  })};
+});
+
+export const getTouristRoute = onCall(options, async request => {
+  requireAuth(request.auth?.uid);
+  const point = z.object({lat: z.number().finite().min(-90).max(90), lng: z.number().finite().min(-180).max(180)}).strict();
+  const input = z.object({
+    origin: point, destination: point,
+    waypoints: z.array(point).max(5).default([]),
+    travelMode: z.enum(["DRIVE", "WALK", "BICYCLE"]).default("DRIVE"),
+    optimizeStops: z.boolean().default(true)
+  }).strict().safeParse(request.data);
+  if (!input.success) throw new HttpsError("invalid-argument", "Invalid tourist route request.");
+  const response = await googleJson("https://routes.googleapis.com/directions/v2:computeRoutes", {
+    method: "POST",
+    headers: {"Content-Type": "application/json", "X-Goog-Api-Key": apiKey(),
+      "X-Goog-FieldMask": "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline,routes.optimizedIntermediateWaypointIndex"},
+    body: JSON.stringify({
+      origin: {location: {latLng: {latitude: input.data.origin.lat, longitude: input.data.origin.lng}}},
+      destination: {location: {latLng: {latitude: input.data.destination.lat, longitude: input.data.destination.lng}}},
+      ...(input.data.waypoints.length ? {
+        intermediates: input.data.waypoints.map(p => ({location: {latLng: {latitude: p.lat, longitude: p.lng}}})),
+        optimizeWaypointOrder: input.data.optimizeStops
+      } : {}),
+      travelMode: input.data.travelMode,
+      ...(input.data.travelMode === "DRIVE" ? {routingPreference: "TRAFFIC_AWARE"} : {}),
+      languageCode: "en", units: "METRIC"
+    })
+  });
+  const routes = response.routes as Record<string, unknown>[] | undefined;
+  const route = routes?.[0];
+  if (!route || typeof route.distanceMeters !== "number" || typeof route.duration !== "string") {
+    throw new HttpsError("not-found", "No route found for these stops.");
+  }
+  const durationSeconds = Math.ceil(Number(route.duration.replace(/s$/, "")));
+  if (!Number.isFinite(durationSeconds) || route.distanceMeters < 1 || durationSeconds < 1) {
+    throw new HttpsError("failed-precondition", "The route provider returned invalid route data.");
+  }
+  const polyline = route.polyline as Record<string, unknown> | undefined;
+  return {
+    distanceMeters: route.distanceMeters, durationSeconds,
+    encodedPolyline: String(polyline?.encodedPolyline || ""),
+    optimizedIntermediateWaypointIndex: Array.isArray(route.optimizedIntermediateWaypointIndex)
+      ? route.optimizedIntermediateWaypointIndex.filter(x => Number.isInteger(x)) : [],
+    routeSource: "google_routes",
+    warning: "Route optimization is based on Google Routes data and selected travel mode; it is not a guarantee of real-time road safety."
+  };
+});
+
 export type ValidatedRoute = {
   distanceMeters: number;
   durationSeconds: number;

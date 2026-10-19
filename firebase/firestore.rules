@@ -18,7 +18,9 @@ service cloud.firestore {
         (isAdmin() ||
          (exists(/databases/$(database)/documents/rides/$(rideId)) &&
           (get(/databases/$(database)/documents/rides/$(rideId)).data.riderId == request.auth.uid ||
-           get(/databases/$(database)/documents/rides/$(rideId)).data.driverId == request.auth.uid)));
+           get(/databases/$(database)/documents/rides/$(rideId)).data.driverId == request.auth.uid ||
+           (('riderIds' in get(/databases/$(database)/documents/rides/$(rideId)).data) &&
+            get(/databases/$(database)/documents/rides/$(rideId)).data.riderIds.hasAny([request.auth.uid])))));
     }
     match /users/{uid} {
       allow get: if isSelf(uid) || isAdmin();
@@ -64,7 +66,8 @@ service cloud.firestore {
     match /rides/{rideId} {
       allow get, list: if signedIn() && (
         isAdmin() || resource.data.riderId == request.auth.uid ||
-        resource.data.driverId == request.auth.uid
+        resource.data.driverId == request.auth.uid ||
+        (('riderIds' in resource.data) && resource.data.riderIds.hasAny([request.auth.uid]))
       );
       allow write: if false;
       match /messages/{messageId} {

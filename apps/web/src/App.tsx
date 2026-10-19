@@ -9,6 +9,7 @@ import {
   collection, limit, onSnapshot, orderBy, query, where, getDocs
 } from "firebase/firestore";
 import {httpsCallable} from "firebase/functions";
+import {AccountPage, NotificationBell, SafetyPage, SharedRidePage, SharedTripPublicPage, TouristPage, TripCard} from "./FeaturePages";
 import {auth, db, firebaseReady, functions} from "./firebase";
 import {
   displayError, formatBdt, formatDistance, formatDuration, validBangladeshPhone,
@@ -216,7 +217,19 @@ function AuthPanel({onClose}: {onClose: () => void}) {
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
-  const [tab, setTab] = useState<"ride" | "rentals" | "trips">("ride");
+  const [tab, setTab] = useState<"ride" | "rentals" | "trips" | "shared" | "safety" | "explore" | "account">("ride");
+  const [language, setLanguage] = useState<"en" | "bn">("en");
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [shareRide, setShareRide] = useState(false);
+  const [displayCurrency, setDisplayCurrency] = useState("BDT");
+  const [fxRate, setFxRate] = useState(1);
+  const [fxDate, setFxDate] = useState("");
+  const [fxSource, setFxSource] = useState("BDT");
+  const [fxError, setFxError] = useState("");
+  const [mlInsight, setMlInsight] = useState<{modelStatus?: string; baseline?: {etaMinutes?: number; authoritativeFareMinor?: number; currency?: string}; insights?: Record<string, unknown>; note?: string; warning?: string; featureQuality?: string} | null>(null);
+  const [rentalType, setRentalType] = useState("all");
+  const [rentalArea, setRentalArea] = useState("");
+  const [rentalMaxPrice, setRentalMaxPrice] = useState("");
   const [pickup, setPickup] = useState<RidePoint | null>(null);
   const [destination, setDestination] = useState<RidePoint | null>(null);
   const [vehicleType, setVehicleType] = useState<"bike" | "car" | "premium">("car");
@@ -247,15 +260,30 @@ export default function App() {
 
   useEffect(() => {
     if (!db || !user) { setRides([]); setPayments({}); return; }
-    const stopRides = onSnapshot(query(collection(db, "rides"),
+    let own: Ride[] = [];
+    let shared: Ride[] = [];
+    const publish = () => {
+      const merged = new Map<string, Ride>();
+      [...own, ...shared].forEach(ride => merged.set(ride.id, ride));
+      setRides([...merged.values()].sort((a,b) =>
+        (b.createdAt?.toDate?.().getTime() || 0) - (a.createdAt?.toDate?.().getTime() || 0)).slice(0,20));
+    };
+    const stopOwn = onSnapshot(query(collection(db, "rides"),
       where("riderId", "==", user.uid), orderBy("createdAt", "desc"), limit(10)),
-      snap => setRides(snap.docs.map(doc => ({...doc.data(), id: doc.id} as Ride))),
+      snap => {own = snap.docs.map(d => ({...d.data(), id: d.id} as Ride));publish();},
+      e => setError(displayError(e)));
+    const stopShared = onSnapshot(query(collection(db, "rides"),
+      where("riderIds", "array-contains", user.uid), limit(20)),
+      snap => {shared = snap.docs.map(d => ({...d.data(), id: d.id} as Ride));publish();},
       e => setError(displayError(e)));
     const stopPayments = onSnapshot(query(collection(db, "payments"),
       where("payerId", "==", user.uid), limit(20)),
-      snap => setPayments(Object.fromEntries(snap.docs.map(doc => [doc.id, doc.data() as {method?: string; status?: string}]))),
+      snap => setPayments(Object.fromEntries(snap.docs.map(d => {
+        const value = d.data() as {method?: string; status?: string; rideId?: string; amountMinor?: number};
+        return [value.rideId || d.id, value];
+      }))),
       e => setError(displayError(e)));
-    return () => {stopRides();stopPayments();};
+    return () => {stopOwn();stopShared();stopPayments();};
   }, [user]);
 
   useEffect(() => {
@@ -277,6 +305,16 @@ export default function App() {
       e => setError(displayError(e)));
   }, [user]);
 
+  useEffect(() => {
+    if (!quote || displayCurrency === "BDT") {setFxRate(1);setFxDate("");setFxSource("BDT");setFxError("");return;}
+    let alive = true;
+    setFxError("");
+    void call<{rate:number;date:string;source:string}>("getCurrencyRate",{currency:displayCurrency})
+      .then(result => {if(alive){setFxRate(result.rate);setFxDate(result.date);setFxSource(result.source);}})
+      .catch(e => {if(alive){setFxRate(1);setFxError(displayError(e));}});
+    return () => {alive = false;};
+  }, [displayCurrency, quote?.quoteId]);
+
   const requireUser = useCallback(() => {
     if (!user) {setAuthOpen(true);return false;}
     return true;
@@ -284,14 +322,19 @@ export default function App() {
 
   async function getQuote() {
     setError("");setNotice("");
-    if (!requireUser() || !pickup || !destination) {
-      if (!pickup || !destination) setError("Choose both pickup and destination from the suggestions.");
-      return;
-    }
-    setBusy(true);
+    if (!requireUser()) return;
+    if (!pickup || !destination) {setError("Choose both pickup and destination from the suggestions.");return;}
+    setBusy(true);setMlInsight(null);setFxError("");
     try {
-      const result = await call<FareQuote>("getFareQuote", {pickup: {lat: pickup.lat, lng: pickup.lng}, destination: {lat: destination.lat, lng: destination.lng}, vehicleType});
+      const result = await call<FareQuote>("getFareQuote", {
+        pickup: {lat: pickup.lat, lng: pickup.lng},
+        destination: {lat: destination.lat, lng: destination.lng},
+        pickupLabel: pickup.label, destinationLabel: destination.label, vehicleType
+      });
       setQuote(result);
+      void call<typeof mlInsight>("getMlTripInsights", {quoteId: result.quoteId})
+        .then(value => setMlInsight(value))
+        .catch(e => setMlInsight({modelStatus:"unavailable",note:displayError(e)}));
     } catch (e) {setError(displayError(e));setQuote(null);}
     finally {setBusy(false);}
   }
@@ -300,11 +343,21 @@ export default function App() {
     if (!requireUser() || !quote) return;
     setBusy(true);setError("");setNotice("");
     try {
-      const ride = await call<{rideId: string}>("requestRide", {quoteId: quote.quoteId, idempotencyKey: crypto.randomUUID()});
-      setNotice("Ride request created: " + ride.rideId + ". Matching is starting.");
-      setQuote(null);setTab("trips");
-      try {await call("dispatchNearbyDrivers", {rideId: ride.rideId});}
-      catch (e) {setNotice("Ride request saved. Matching may need a retry: " + displayError(e));}
+      if (shareRide) {
+        const group = await call<{groupId:string;status:string;memberCount:number;shareForCurrentUser:number|null}>(
+          "requestSharedRide", {quoteId: quote.quoteId, idempotencyKey: crypto.randomUUID()}
+        );
+        setNotice(group.status === "matched"
+          ? "Compatible co-riders found. Open Shared rides to review the fare split; only the organizer can confirm."
+          : "Shared ride request saved. DRIVE will wait for compatible co-riders.");
+        setQuote(null);setTab("shared");
+      } else {
+        const ride = await call<{rideId: string}>("requestRide", {quoteId: quote.quoteId, idempotencyKey: crypto.randomUUID()});
+        setNotice("Ride request created: " + ride.rideId + ". Matching is starting.");
+        setQuote(null);setTab("trips");
+        try {await call("dispatchNearbyDrivers", {rideId: ride.rideId});}
+        catch (e) {setNotice("Ride request saved. Matching may need a retry: " + displayError(e));}
+      }
     } catch (e) {setError(displayError(e));}
     finally {setBusy(false);}
   }
@@ -351,8 +404,10 @@ export default function App() {
     if (!requireUser()) return;
     const startAt = new Date(rentalStart).getTime();
     const endAt = new Date(rentalEnd).getTime();
-    if (!Number.isFinite(startAt) || !Number.isFinite(endAt) || endAt <= startAt) {
-      setError("Choose a valid rental start and end time.");
+    if (!Number.isFinite(startAt) || !Number.isFinite(endAt) || endAt <= startAt ||
+        startAt < Date.now() + 60000 || startAt > Date.now() + 90 * 86400000 ||
+        endAt - startAt > 72 * 3600000) {
+      setError("Choose a future start (within 90 days) and a valid rental duration of at most 72 hours.");
       return;
     }
     setBusy(true);setError("");setNotice("");
@@ -374,15 +429,41 @@ export default function App() {
     finally {setBusy(false);}
   }
 
-  return <div className="app-shell">
+  const shareToken = typeof window !== "undefined" && window.location.pathname.startsWith("/share/")
+    ? window.location.pathname.split("/")[2] || "" : "";
+  if (shareToken) return <SharedTripPublicPage token={shareToken}/>;
+  const nav = language === "bn"
+    ? [{id:"ride",label:"রাইড বুক"},{id:"shared",label:"শেয়ার রাইড"},{id:"rentals",label:"ভাড়া"},{id:"explore",label:"ঘুরে দেখুন"},{id:"safety",label:"নিরাপত্তা"},{id:"trips",label:"আমার ট্রিপ"},{id:"account",label:"অ্যাকাউন্ট"}] as const
+    : [{id:"ride",label:"Book a ride"},{id:"shared",label:"Shared rides"},{id:"rentals",label:"Rentals"},{id:"explore",label:"Explore"},{id:"safety",label:"Safety"},{id:"trips",label:"My trips"},{id:"account",label:"Account"}] as const;
+  const pageTitle: Record<typeof tab,string> = {
+    ride: language==="bn"?"আপনার পরবর্তী রাইড":"Plan your next ride",
+    shared: language==="bn"?"শেয়ার রাইড":"Shared ride matching",
+    rentals: language==="bn"?"গাড়ি ভাড়া নিন":"Find a vehicle to rent",
+    explore: language==="bn"?"ঘুরে দেখুন":"Tourist mode & route planning",
+    safety: language==="bn"?"নিরাপত্তা কেন্দ্র":"Safety centre",
+    trips: language==="bn"?"আপনার ট্রিপ":"Your activity",
+    account: language==="bn"?"আপনার অ্যাকাউন্ট":"Your account & service roles"
+  };
+  const formatDisplayFare = (minor: number) => {
+    const amount = minor / 100 * (displayCurrency === "BDT" ? 1 : fxRate);
+    try {return new Intl.NumberFormat(language==="bn"?"bn-BD":"en-BD",{style:"currency",currency:displayCurrency,maximumFractionDigits:displayCurrency==="JPY"?0:2}).format(amount);}
+    catch {return displayCurrency+" "+amount.toFixed(2);}
+  };
+  const filteredVehicles = vehicles.filter(vehicle =>
+    (rentalType==="all" || vehicle.type===rentalType) &&
+    (!rentalArea.trim() || (vehicle.area||"").toLowerCase().includes(rentalArea.trim().toLowerCase())) &&
+    (!rentalMaxPrice || (vehicle.rentalRatePerHourMinor||0) <= Number(rentalMaxPrice)*100)
+  );
+  return <div className="app-shell" data-theme={theme}>
     <header className="topbar">
       <a href="#home" className="brand" aria-label="DRIVE home"><span className="brand-mark">↝</span><span>DRIVE</span></a>
       <nav aria-label="Main navigation">
-        <button className={tab === "ride" ? "nav-active" : ""} onClick={() => setTab("ride")}>Book a ride</button>
-        <button className={tab === "rentals" ? "nav-active" : ""} onClick={() => setTab("rentals")}>Rent a vehicle</button>
-        <button className={tab === "trips" ? "nav-active" : ""} onClick={() => setTab("trips")}>My trips</button>
+        {nav.map(item => <button key={item.id} className={tab === item.id ? "nav-active" : ""} onClick={() => setTab(item.id)}>{item.label}</button>)}
       </nav>
       <div className="top-actions">
+        <button className="button outline compact" onClick={()=>setLanguage(v=>v==="en"?"bn":"en")} aria-label="Switch language">{language==="en"?"বাংলা":"English"}</button>
+        <button className="icon-button" onClick={()=>setTheme(v=>v==="dark"?"light":"dark")} aria-label="Toggle color theme">{theme==="dark"?"☼":"☾"}</button>
+        {user && <NotificationBell user={user} onError={setError} onOpenTrips={()=>setTab("trips")}/>}
         {user ? <><span className="user-label">{user.displayName || user.email || user.phoneNumber}</span><button className="button outline compact" onClick={() => auth && void signOut(auth)}>Sign out</button></>
           : <button className="button primary compact" onClick={() => setAuthOpen(true)}>Sign in</button>}
       </div>
@@ -411,9 +492,15 @@ export default function App() {
       </section>
 
       <section className="service-strip">
-        <article><span className="service-icon">↗</span><div><h3>Everyday rides</h3><p>Choose Bike, Car or Premium and see the server-calculated estimate.</p></div></article>
-        <article><span className="service-icon">⌂</span><div><h3>Vehicle rentals</h3><p>Browse approved vehicles and reserve a time slot without overlap.</p></div></article>
-        <article><span className="service-icon">♡</span><div><h3>Safety by design</h3><p>Trip records and access checks are enforced by the shared backend.</p></div></article>
+        <article><span className="service-icon">↗</span><div><h3>Smart rides</h3><p>Compare Bike, Car and Premium with server-calculated fare and traffic-aware ETA.</p></div></article>
+        <article><span className="service-icon">⌂</span><div><h3>Vehicle rentals</h3><p>Browse approved vehicles and reserve time slots without overlap.</p></div></article>
+        <article><span className="service-icon">♡</span><div><h3>Safety by design</h3><p>Women Safety preferences, trip sharing and reviewable incident records.</p></div></article>
+      </section>
+      <section className="feature-quicklinks" aria-label="DRIVE feature areas">
+        <button onClick={()=>setTab("shared")}><span>⇄</span><b>Shared rides</b><small>Compatible riders and cost split</small></button>
+        <button onClick={()=>setTab("safety")}><span>♡</span><b>Women Safety</b><small>Trusted contacts and live share links</small></button>
+        <button onClick={()=>setTab("explore")}><span>⌖</span><b>Tourist Mode</b><small>Nearby places and multi-stop routes</small></button>
+        <button onClick={()=>setTab("account")}><span>◎</span><b>Driver & owner</b><small>Apply, manage, and review activity</small></button>
       </section>
 
       {!firebaseReady && <div className="setup-banner" role="status"><b>Setup required:</b> add the Firebase Web app values to <code>apps/web/.env.local</code>. The website intentionally disables data and sign-in until configured.</div>}
@@ -421,7 +508,7 @@ export default function App() {
       {notice && <div className="alert success global-alert" role="status"><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Dismiss notice">×</button></div>}
 
       <section className="workspace" aria-label="DRIVE web services">
-        <div className="section-heading"><div><p className="eyebrow">YOUR DRIVE</p><h2>{tab === "ride" ? "Plan your next ride" : tab === "rentals" ? "Find a vehicle to rent" : "Your activity"}</h2></div><span className="section-tag">BANGLADESH · BDT</span></div>
+        <div className="section-heading"><div><p className="eyebrow">YOUR DRIVE</p><h2>{pageTitle[tab]}</h2></div><span className="section-tag">BANGLADESH · BDT</span></div>
         {tab === "ride" && <div className="workspace-grid">
           <div className="panel booking-panel">
             <div className="panel-title"><span className="panel-number">01</span><div><h3>Where are you going?</h3><p>Search a pickup and destination to get a trusted quote.</p></div></div>
@@ -433,12 +520,14 @@ export default function App() {
                   <span>{v.glyph}</span><b>{v.label}</b>
                 </button>)}
             </div></div>
+            <label className="toggle-row ride-preference"><span><b>Find compatible co-riders</b><small>Join a shared-ride search and split the organizer's estimated BDT fare.</small></span><input type="checkbox" checked={shareRide} onChange={e=>{setShareRide(e.target.checked);setQuote(null);}}/></label>
+            <div className="field"><label>Display currency</label><select value={displayCurrency} onChange={e=>setDisplayCurrency(e.target.value)}><option value="BDT">BDT · Bangladeshi taka</option><option value="USD">USD · US dollar</option><option value="EUR">EUR · Euro</option><option value="GBP">GBP · Pound sterling</option><option value="INR">INR · Indian rupee</option><option value="AUD">AUD · Australian dollar</option><option value="CAD">CAD · Canadian dollar</option><option value="SGD">SGD · Singapore dollar</option><option value="JPY">JPY · Japanese yen</option><option value="SAR">SAR · Saudi riyal</option><option value="AED">AED · UAE dirham</option></select></div>
             <button className="button primary full" disabled={busy || !firebaseReady} onClick={() => void getQuote()}>{busy ? "Working…" : "Get fare estimate"}</button>
-            <p className="tiny muted">The final quote is calculated by the DRIVE backend. Estimates expire after five minutes.</p>
+            <p className="tiny muted">The server owns the payable BDT quote. Estimates expire after five minutes; display conversion is indicative only.</p>
           </div>
           <div className="panel quote-panel">
             {!quote ? <div className="empty-state"><div className="empty-icon">⌖</div><h3>Your route starts here</h3><p>Choose both locations to see distance, estimated time and BDT fare.</p><div className="route-preview"><span></span><i></i><span></span></div></div>
-              : <div className="quote-content"><p className="eyebrow">YOUR ESTIMATE</p><div className="fare-total">{formatBdt(quote.fare.totalMinor)}</div><p className="muted">Estimated total · {quote.currency}</p><div className="route-stats"><div><small>Distance</small><b>{formatDistance(quote.route.distanceMeters)}</b></div><div><small>ETA</small><b>{formatDuration(quote.route.durationSeconds)}</b></div></div>{quote.warning && <div className="alert warning">{quote.warning}</div>}<div className="route-points"><span><i className="route-point green"></i><div><small>Pickup</small><b>{pickup?.label}</b></div></span><span><i className="route-point coral"></i><div><small>Destination</small><b>{destination?.label}</b></div></span></div><button className="button primary full" disabled={busy} onClick={() => void requestRide()}>{busy ? "Requesting…" : "Request this ride"}</button><p className="tiny muted">Requesting creates a ride request; it does not guarantee a driver has accepted.</p></div>}
+              : <div className="quote-content"><p className="eyebrow">YOUR ESTIMATE · SERVER CALCULATED</p><div className="fare-total">{formatDisplayFare(quote.fare.totalMinor)}</div><p className="muted">Indicative display total · {displayCurrency}</p>{displayCurrency!=="BDT"&&<p className="tiny muted">Payable quote remains {formatBdt(quote.fare.totalMinor)} BDT. {fxDate?"Rate date: "+fxDate+" · "+fxSource:""}{fxError?" · "+fxError:""}</p>}<div className="route-stats"><div><small>Distance</small><b>{formatDistance(quote.route.distanceMeters)}</b></div><div><small>ETA</small><b>{formatDuration(quote.route.durationSeconds)}</b></div></div><div className="fare-breakdown"><div><span>Base fare</span><b>{formatBdt(quote.fare.baseMinor||0)}</b></div><div><span>Distance</span><b>{formatBdt(quote.fare.distanceMinor||0)}</b></div><div><span>Time</span><b>{formatBdt(quote.fare.durationMinor||0)}</b></div><div><span>Service fee</span><b>{formatBdt(quote.fare.serviceFeeMinor||0)}</b></div>{Number(quote.fare.surgeExtraMinor||0)>0&&<div><span>Surge adjustment</span><b>{formatBdt(quote.fare.surgeExtraMinor||0)}</b></div>}<div className="fare-breakdown-total"><span>Estimated payable fare</span><b>{formatBdt(quote.fare.totalMinor)}</b></div></div>{quote.warning && <div className="alert warning">{quote.warning}</div>}<div className="route-points"><span><i className="route-point green"></i><div><small>Pickup</small><b>{pickup?.label}</b></div></span><span><i className="route-point coral"></i><div><small>Destination</small><b>{destination?.label}</b></div></span></div><div className="ml-insight"><div className="ml-heading"><b>Smart fare & ETA insight</b><span className="pill">{mlInsight?.modelStatus||"loading"}</span></div>{!mlInsight?<p className="muted tiny">Checking whether the experimental ML service is available…</p>:<><p className="muted tiny">{mlInsight.note||mlInsight.warning||"Experimental insight only; it never changes your payable quote."}</p>{mlInsight.baseline&&<p className="tiny">Baseline ETA: {mlInsight.baseline.etaMinutes} min · authoritative BDT fare: {formatBdt(mlInsight.baseline.authoritativeFareMinor||quote.fare.totalMinor)}</p>}</>}</div><button className="button primary full" disabled={busy} onClick={() => void requestRide()}>{busy ? "Requesting…" : shareRide ? "Find compatible co-riders" : "Request this ride"}</button><p className="tiny muted">{shareRide?"Shared fare is provisional until the organizer confirms a compatible group.":"Requesting creates a ride request; it does not guarantee a driver has accepted."}</p></div>}
           </div>
         </div>}
 
@@ -449,15 +538,21 @@ export default function App() {
             <div className="field"><label>End</label><input type="datetime-local" value={rentalEnd} onChange={e => setRentalEnd(e.target.value)} /></div>
             <p className="tiny muted">Reservations are validated and locked by the backend. Overlapping requests will be rejected.</p>
           </div>
+          <div className="panel rental-filter-row"><div className="field"><label>Vehicle type</label><select value={rentalType} onChange={e=>setRentalType(e.target.value)}><option value="all">All types</option><option value="bike">Bike</option><option value="car">Car</option><option value="premium">Premium</option></select></div><div className="field"><label>Area</label><input value={rentalArea} onChange={e=>setRentalArea(e.target.value)} placeholder="Filter by area"/></div><div className="field"><label>Max BDT / hour</label><input type="number" min="0" value={rentalMaxPrice} onChange={e=>setRentalMaxPrice(e.target.value)} placeholder="No limit"/></div></div>
           <div className="vehicle-list">
             {!firebaseReady ? <div className="panel empty-state"><h3>Connect Firebase to view rentals</h3></div>
-              : vehicles.length === 0 ? <div className="panel empty-state"><h3>No vehicles to show yet</h3><p>Approved listings appear here when available.</p></div>
-              : vehicles.map(vehicle => <article className="panel vehicle-card" key={vehicle.id}><div className="vehicle-art"><span>{vehicle.type === "bike" ? "↗" : "▰"}</span></div><div className="vehicle-details"><div className="vehicle-topline"><span className="pill">APPROVED</span><span className="muted small">{vehicle.area || "Bangladesh"}</span></div><h3>{vehicle.model || "DRIVE rental vehicle"}</h3><p className="muted">{vehicle.type || "Vehicle"} · {vehicle.seatCount || "—"} seats</p><div className="vehicle-price">{formatBdt(vehicle.rentalRatePerHourMinor || 0)} <small>/ hour</small></div><button className="button primary compact" disabled={busy} onClick={() => void bookRental(vehicle.id)}>Reserve vehicle</button></div></article>)}
+              : filteredVehicles.length === 0 ? <div className="panel empty-state"><h3>No matching vehicles</h3><p>Try changing the category, area or hourly price. Only approved rental-enabled listings are shown.</p></div>
+              : filteredVehicles.map(vehicle => <article className="panel vehicle-card" key={vehicle.id}><div className="vehicle-art"><span>{vehicle.type === "bike" ? "↗" : "▰"}</span></div><div className="vehicle-details"><div className="vehicle-topline"><span className="pill">APPROVED</span><span className="muted small">{vehicle.area || "Bangladesh"}</span></div><h3>{vehicle.model || "DRIVE rental vehicle"}</h3><p className="muted">{vehicle.type || "Vehicle"} · {vehicle.seatCount || "—"} seats</p><div className="vehicle-price">{formatBdt(vehicle.rentalRatePerHourMinor || 0)} <small>/ hour</small></div>{Number.isFinite(new Date(rentalStart).getTime())&&Number.isFinite(new Date(rentalEnd).getTime())&&new Date(rentalEnd).getTime()>new Date(rentalStart).getTime()&&<p className="tiny muted">Estimated total: {formatBdt(Math.ceil((new Date(rentalEnd).getTime()-new Date(rentalStart).getTime())/3600000)*(vehicle.rentalRatePerHourMinor||0))} · server confirms the total.</p>}<button className="button primary compact" disabled={busy} onClick={() => void bookRental(vehicle.id)}>Reserve vehicle</button></div></article>)}
           </div>
           {user && <div className="panel booking-history"><h3>Your rental bookings</h3>{bookings.length === 0 ? <p className="muted">Your confirmed reservations will appear here.</p> : bookings.map(booking => <div className="history-row" key={booking.id}><div><b>{booking.vehicleId || "Rental vehicle"}</b><small>{booking.status || "pending"} · {booking.startAt?.toDate?.().toLocaleString() || "Start time pending"}</small></div><b>{formatBdt(booking.totalMinor || 0)}</b>{booking.status === "confirmed" && <button className="button outline compact" disabled={busy} onClick={() => void cancelRental(booking.id)}>Cancel</button>}</div>)}</div>}
         </div>}
 
-        {tab === "trips" && <div className="panel trips-panel"><div className="panel-title"><span className="panel-number">02</span><div><h3>Recent rides</h3><p>Only your own rides and payment records are loaded.</p></div></div>{!user ? <div className="empty-state"><h3>Sign in to view your trips</h3><button className="button primary" onClick={() => setAuthOpen(true)}>Sign in</button></div> : rides.length === 0 ? <div className="empty-state"><h3>No rides yet</h3><p>Your confirmed ride requests will appear here.</p></div> : rides.map(ride => {const payment = payments[ride.id];return <article className="trip-row" key={ride.id}><div className="trip-route"><span className="route-point green"></span><div><b>{ride.pickup?.label || "Pickup location"}</b><small>to {ride.destination?.label || "Destination"}</small></div></div><div className="trip-meta"><span className="pill">{(ride.status || "unknown").replaceAll("_", " ")}</span><b>{formatBdt(ride.fare?.totalMinor || 0)}</b><small>{ride.vehicleType || "Ride"} · {ride.createdAt?.toDate?.().toLocaleString() || "Just now"}</small></div>{["matching","accepted","driver_arriving","in_progress"].includes(ride.status || "") && <div className="trip-payments"><button className="button outline compact" disabled={busy} onClick={() => void reportSafety(ride.id)}>Record SOS report</button><small className="tiny muted">Admin incident record only; emergency services are not contacted.</small></div>}{ride.status === "completed" && !["paid_test","cash_due","cash_reported_received"].includes(payment?.status || "") && <div className="trip-payments"><button className="button outline compact" disabled={busy} onClick={() => void payCash(ride.id)}>Choose cash</button><button className="button primary compact" disabled={busy} onClick={() => void payStripeTest(ride.id)}>Pay with Stripe TEST</button></div>}{payment && <small className="payment-status">Payment: {payment.method || "method pending"} · {payment.status || "status pending"}</small>}</article>;})}</div>}
+        {tab === "trips" && <div className="panel trips-panel"><div className="panel-title"><span className="panel-number">02</span><div><h3>Recent rides</h3><p>Live status, tracking, trip chat, reviews, support cases and payment state.</p></div></div>{!user ? <div className="empty-state"><h3>Sign in to view your trips</h3><button className="button primary" onClick={() => setAuthOpen(true)}>Sign in</button></div> : rides.length === 0 ? <div className="empty-state"><h3>No rides yet</h3><p>Your trip history will appear here after you request a ride.</p><button className="button primary" onClick={()=>setTab("ride")}>Book your first ride</button></div> : <div className="trip-card-list">{rides.map(ride=><TripCard key={ride.id} ride={ride} user={user} payment={payments[ride.id]} onError={setError} onNotice={setNotice}/>)}</div>}</div>}
+        {tab === "shared" && <SharedRidePage user={user} onNeedAuth={()=>setAuthOpen(true)} onError={setError} onNotice={setNotice} onBooked={rideId=>{setNotice("Shared ride "+rideId+" created.");setTab("trips");}}/>}
+        {tab === "safety" && <SafetyPage user={user} rides={rides} onNeedAuth={()=>setAuthOpen(true)} onError={setError} onNotice={setNotice}/>}
+        {tab === "explore" && <TouristPage user={user} onNeedAuth={()=>setAuthOpen(true)} onError={setError} onNotice={setNotice}/>}
+        {tab === "account" && <AccountPage user={user} onNeedAuth={()=>setAuthOpen(true)} onError={setError} onNotice={setNotice}/>}
+
       </section>
     </main>
 

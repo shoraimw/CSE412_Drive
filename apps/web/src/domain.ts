@@ -12,7 +12,7 @@ export type PlaceSuggestion = {
 export type FareQuote = {
   quoteId: string;
   expiresAtMs: number;
-  fare: {totalMinor: number; currency?: string};
+  fare: {totalMinor: number; currency?: string; baseMinor?: number; distanceMinor?: number; durationMinor?: number; serviceFeeMinor?: number; surgeExtraMinor?: number};
   route: {distanceMeters: number; durationSeconds: number; provisional: boolean};
   currency: string;
   warning?: string | null;

@@ -7,7 +7,12 @@ export {
 } from "./engagement";
 export {getMlTripInsights} from "./ml_proxy";
 export {
-  chooseCashForRide, reportCashReceived,
+  getSafetyDashboard, saveSafetyPreferences, upsertTrustedContact, deleteTrustedContact,
+  createTripShare, revokeTripShare, getSharedTrip, getCurrencyRate, getRideDriverSummary,
+  requestSharedRide, getMySharedRideRequests, leaveSharedRideGroup, bookSharedRideGroup
+} from "./customer_features";
+export {
+  chooseCashForRide, chooseCashForSharedRide, reportCashReceived,
   prepareStripeTestCheckout, stripeTestWebhook
 } from "./payments";
 
@@ -24,7 +29,7 @@ import {
   scoreDriver, validStateTransition, Point, FareRates, VehicleCategory
 } from "./domain";
 import {mapsServerKey, serverRoute} from "./maps";
-export {autocompletePlaces, resolvePlace} from "./maps";
+export {autocompletePlaces, resolvePlace, discoverTouristPlaces, getTouristRoute} from "./maps";
 
 const initialConfig = JSON.parse(process.env.FIREBASE_CONFIG || "{}") as {
   projectId?: string; databaseURL?: string; storageBucket?: string;
@@ -317,7 +322,9 @@ export const getFareQuote = onCall(
   async request => {
     const uid = authenticated(request);
     const input = parse(z.object({
-      pickup: pointSchema, destination: pointSchema, vehicleType: categorySchema
+      pickup: pointSchema, destination: pointSchema, vehicleType: categorySchema,
+      pickupLabel: z.string().trim().max(240).optional(),
+      destinationLabel: z.string().trim().max(240).optional()
     }).strict(), request.data);
     const {version, rate} = await activePricing(input.vehicleType);
     let route: {
@@ -383,8 +390,9 @@ export const requestRide = onCall(options, async request => {
     requirePresent((quote.get("expiresAt") as Timestamp).toMillis() > Date.now(),
       "Quote has expired. Generate another fare estimate.");
     tx.create(rideRef, {
-      riderId: uid, driverId: null, status: "matching",
-      pickup: quote.get("pickup"), destination: quote.get("destination"),
+      riderId: uid, riderIds: [uid], driverId: null, status: "matching",
+      pickup: {...(quote.get("pickup") as Point), label: String(quote.get("pickupLabel") || "Pickup location")},
+      destination: {...(quote.get("destination") as Point), label: String(quote.get("destinationLabel") || "Destination")},
       vehicleType: quote.get("vehicleType"), fare: quote.get("fare"),
       currency: "BDT", pricingVersion: quote.get("pricingVersion"),
       estimateMethod: quote.get("estimateMethod"),
@@ -513,14 +521,15 @@ export const respondToOffer = onCall(options, async request => {
     ]);
     requirePresent(freshOffer.get("driverId") === driverId, "Offer ownership mismatch.");
     if (ride.get("driverId") === driverId && ride.get("status") === "accepted") {
-      return {rideId, status: "accepted", riderId: ride.get("riderId") as string};
+      return {rideId, status: "accepted", riderId: ride.get("riderId") as string,
+        riderIds: (ride.get("riderIds") as string[] | undefined) || [ride.get("riderId") as string]};
     }
     requirePresent(freshOffer.get("status") === "pending", "Offer is no longer pending.");
     requirePresent((freshOffer.get("expiresAt") as Timestamp).toMillis() > Date.now(),
       "The offer has expired.");
     if (!input.accept) {
       tx.update(offerRef, {status: "declined", respondedAt: FieldValue.serverTimestamp()});
-      return {rideId, status: "declined", riderId: ""};
+      return {rideId, status: "declined", riderId: "", riderIds: [] as string[]};
     }
     requirePresent(ride.exists && ride.get("status") === "matching",
       "This ride is no longer available.");
@@ -537,10 +546,13 @@ export const respondToOffer = onCall(options, async request => {
     return {rideId, status: "accepted", riderId: ride.get("riderId") as string};
   });
   if (result.status === "accepted") {
+    const access: Record<string, boolean> = {};
+    for (const participantId of new Set([...(result.riderIds || [result.riderId]), driverId])) {
+      access["tripAccess/" + rideId + "/" + participantId] = true;
+    }
     await rtdb.ref().update({
       ["rideDriver/" + rideId]: driverId,
-      ["tripAccess/" + rideId + "/" + result.riderId]: true,
-      ["tripAccess/" + rideId + "/" + driverId]: true
+      ...access
     });
   }
   return {rideId, status: result.status};
@@ -578,7 +590,13 @@ export const advanceRide = onCall(options, async request => {
     });
     if (input.toStatus === "completed") {
       tx.delete(busyRef);
-      tx.delete(db.doc("riderActive/" + ride.get("riderId")));
+      const riderIds = (ride.get("riderIds") as string[] | undefined) ||
+        [ride.get("riderId") as string];
+      for (const riderId of riderIds) tx.delete(db.doc("riderActive/" + riderId));
+      const sharedGroupId = ride.get("sharedGroupId") as string | undefined;
+      if (sharedGroupId) tx.update(db.doc("sharedRideGroups/" + sharedGroupId), {
+        status: "completed", completedAt: FieldValue.serverTimestamp()
+      });
     }
   });
   if (input.toStatus === "completed") {
@@ -599,11 +617,13 @@ export const cancelRide = onCall(options, async request => {
     const ride = await tx.get(rideRef);
     requirePresent(ride.exists, "Ride not found.");
     const riderId = ride.get("riderId") as string;
+    const riderIds = (ride.get("riderIds") as string[] | undefined) || [riderId];
     const driverId = ride.get("driverId") as string | null;
-    requirePresent(uid === riderId || uid === driverId, "Not a trip participant.");
+    const isRider = riderIds.includes(uid) || uid === riderId;
+    requirePresent(isRider || uid === driverId, "Not a trip participant.");
     const from = ride.get("status") as string;
     requirePresent(validStateTransition(from, "cancelled",
-      uid === riderId ? "rider" : "driver"), "Ride can no longer be cancelled.");
+      isRider ? "rider" : "driver"), "Ride can no longer be cancelled.");
     const busyRef = driverId ? db.doc("driverBusy/" + driverId) : null;
     if (busyRef) {
       const busy = await tx.get(busyRef);
@@ -612,7 +632,11 @@ export const cancelRide = onCall(options, async request => {
     tx.update(rideRef, {status: "cancelled", cancelledBy: uid,
       cancellationFeeMinor: 0, cancellationPolicy: "phase2_no_fee",
       cancelledAt: FieldValue.serverTimestamp()});
-    tx.delete(db.doc("riderActive/" + riderId));
+    for (const participantId of riderIds) tx.delete(db.doc("riderActive/" + participantId));
+    const sharedGroupId = ride.get("sharedGroupId") as string | undefined;
+    if (sharedGroupId) tx.update(db.doc("sharedRideGroups/" + sharedGroupId), {
+      status: "cancelled", cancelledAt: FieldValue.serverTimestamp()
+    });
     tx.create(db.collection("rideEvents").doc(), {
       rideId: input.rideId, actorId: uid, type: "cancelled",
       createdAt: FieldValue.serverTimestamp()
@@ -712,13 +736,22 @@ export const reportSafetyIncident = onCall(options, async request => {
     note: z.string().max(500).default("")
   }).strict(), request.data);
   const ride = await db.doc("rides/" + input.rideId).get();
-  requirePresent(ride.exists &&
-    (ride.get("riderId") === uid || ride.get("driverId") === uid),
+  requirePresent(ride.exists, "Trip not found.");
+  const riderIds = (ride.get("riderIds") as string[] | undefined) ||
+    [ride.get("riderId") as string];
+  requirePresent(riderIds.includes(uid) || ride.get("driverId") === uid,
     "You are not a participant in this ride.");
+  const latest = await rtdb.ref("tripLocations/" + input.rideId).get();
+  const location = latest.val() as Record<string, unknown> | null;
+  const safeLocation = location && typeof location.lat === "number" &&
+    typeof location.lng === "number" && typeof location.updatedAt === "number" &&
+    Date.now() - location.updatedAt <= 120000
+    ? {lat: location.lat, lng: location.lng, updatedAt: location.updatedAt} : null;
   const ref = db.collection("safetyIncidents").doc();
   await ref.create({
     rideId: input.rideId, reporterId: uid,
     type: input.type, note: input.note, status: "open",
+    latestLocation: safeLocation,
     createdAt: FieldValue.serverTimestamp(),
     alertDeliveryStatus: "not_configured"
   });

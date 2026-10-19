@@ -3,6 +3,7 @@ import {getAuth, connectAuthEmulator} from "firebase/auth";
 import {getFirestore, connectFirestoreEmulator} from "firebase/firestore";
 import {getFunctions, connectFunctionsEmulator} from "firebase/functions";
 import {getStorage, connectStorageEmulator} from "firebase/storage";
+import {getDatabase, connectDatabaseEmulator, type Database} from "firebase/database";
 import {initializeAppCheck, ReCaptchaEnterpriseProvider} from "firebase/app-check";
 
 const config = {
@@ -27,6 +28,7 @@ export const auth = app ? getAuth(app) : null;
 export const db = app ? getFirestore(app) : null;
 export const functions = app ? getFunctions(app, "asia-south1") : null;
 export const storage = app && config.storageBucket ? getStorage(app) : null;
+export const rtdb: Database | null = app && config.databaseURL ? getDatabase(app) : null;
 
 const useEmulators = import.meta.env.VITE_FIREBASE_USE_EMULATORS === "true";
 const localHost = typeof location !== "undefined" &&
@@ -37,6 +39,7 @@ if (app && useEmulators && localHost) {
   if (db) connectFirestoreEmulator(db, "127.0.0.1", 8080);
   if (functions) connectFunctionsEmulator(functions, "127.0.0.1", 5001);
   if (storage) connectStorageEmulator(storage, "127.0.0.1", 9199);
+  if (rtdb) connectDatabaseEmulator(rtdb, "127.0.0.1", 9000);
 } else if (app && import.meta.env.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY) {
   initializeAppCheck(app, {
     provider: new ReCaptchaEnterpriseProvider(

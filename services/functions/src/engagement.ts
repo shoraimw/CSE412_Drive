@@ -26,15 +26,16 @@ function validate<T>(schema: z.ZodSchema<T>, value: unknown): T {
   return parsed.data;
 }
 function requireRide(ride: FirebaseFirestore.DocumentSnapshot,
-    uid: string): {riderId: string; driverId: string; status: string} {
+    uid: string): {riderId: string; riderIds: string[]; driverId: string; status: string} {
   if (!ride.exists) throw new HttpsError("not-found", "Trip was not found.");
   const riderId = ride.get("riderId") as string;
+  const riderIds = (ride.get("riderIds") as string[] | undefined) || [riderId];
   const driverId = ride.get("driverId") as string | null;
   const status = ride.get("status") as string;
-  if (!driverId || (uid !== riderId && uid !== driverId)) {
+  if (!driverId || (!riderIds.includes(uid) && uid !== riderId && uid !== driverId)) {
     throw new HttpsError("permission-denied", "Not a participant in this ride.");
   }
-  return {riderId, driverId, status};
+  return {riderId, riderIds, driverId, status};
 }
 
 /** Chat messages are server-owned. Firebase transit encryption is NOT end-to-end encryption. */
@@ -61,7 +62,7 @@ export const sendRideMessage = onCall(callOptions, async request => {
       return;
     }
     tx.create(msgRef, {
-      senderId: uid, recipientId: uid === info.riderId ? info.driverId : info.riderId,
+      senderId: uid, recipientId: info.riderIds.includes(uid) ? info.driverId : info.riderId,
       text: input.text, rideId: input.rideId, createdAt: FieldValue.serverTimestamp()
     });
   });
@@ -89,8 +90,8 @@ export const rateCompletedRide = onCall(callOptions, async request => {
     }
     tx.create(ratingRef, {
       rideId: input.rideId, authorId: uid,
-      targetId: uid === info.riderId ? info.driverId : info.riderId,
-      authorRole: uid === info.riderId ? "rider" : "driver",
+      targetId: info.riderIds.includes(uid) ? info.driverId : info.riderId,
+      authorRole: info.riderIds.includes(uid) ? "rider" : "driver",
       stars: input.stars, comment: input.comment,
       createdAt: FieldValue.serverTimestamp()
     });

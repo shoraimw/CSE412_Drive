@@ -90,6 +90,47 @@ export const chooseCashForRide = onCall({region, enforceAppCheck}, async request
   return {rideId, method: "cash", status: result};
 });
 
+/** Shared rides create one independently tracked cash choice per participant. */
+export const chooseCashForSharedRide = onCall({region, enforceAppCheck}, async request => {
+  const uid = authenticated(request);
+  const rideId = rideIdFrom(request.data);
+  const ride = await db().doc("rides/" + rideId).get();
+  if (!ride.exists || ride.get("status") !== "completed" || ride.get("sharedRide") !== true) {
+    throw new HttpsError("failed-precondition", "Only a completed shared ride can be paid.");
+  }
+  const riders = (ride.get("riderIds") as string[] | undefined) || [ride.get("riderId") as string];
+  if (!riders.includes(uid)) throw new HttpsError("permission-denied", "You are not a passenger in this shared ride.");
+  const shares = ride.get("fareShares") as Record<string, unknown> | undefined;
+  const amountMinor = shares?.[uid];
+  if (typeof amountMinor !== "number" || !Number.isSafeInteger(amountMinor) || amountMinor < 1) {
+    throw new HttpsError("failed-precondition", "This passenger's fare share is unavailable.");
+  }
+  if (ride.get("currency") !== "BDT") {
+    throw new HttpsError("failed-precondition", "Shared-ride cash settlement currently supports BDT only.");
+  }
+  const paymentRef = db().doc("payments/" + rideId + "_" + uid);
+  let status = "cash_due";
+  await db().runTransaction(async tx => {
+    const old = await tx.get(paymentRef);
+    if (old.exists) {
+      if (old.get("payerId") !== uid || old.get("rideId") !== rideId ||
+          old.get("method") !== "cash") {
+        throw new HttpsError("failed-precondition", "A different payment method is already recorded.");
+      }
+      status = String(old.get("status") || "cash_due");
+      return;
+    }
+    tx.create(paymentRef, {
+      rideId, payerId: uid, driverId: ride.get("driverId"),
+      method: "cash", currency: "BDT", amountMinor,
+      sharedRide: true, status: "cash_due", externalVerified: false,
+      createdAt: FieldValue.serverTimestamp()
+    });
+  });
+  return {rideId, method: "cash", status, amountMinor,
+    warning: "Cash choice is not proof that the driver received the money."};
+});
+
 /** Driver attestation, never independent confirmation of cash collection. */
 export const reportCashReceived = onCall({region, enforceAppCheck}, async request => {
   const uid = authenticated(request);
