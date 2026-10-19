@@ -52,16 +52,26 @@ class DriveFirebaseConfig {
         'with --dart-define-from-file.',
       );
     }
+    // The app's project ID must match the project passed to
+    // `firebase emulators:start --project ...`. If a local config file is
+    // supplied, keep its API key/app ID so Firebase SDK token plumbing works;
+    // the Firebase service clients below are still redirected to emulators.
+    final emulatorProjectId = projectId.isEmpty ? 'demo-drive-local' : projectId;
     final app = await Firebase.initializeApp(
       options: emulator
-          ? const FirebaseOptions(
-              apiKey: 'drive-local-api-key',
-              appId: '1:1234567890:android:drive-local',
-              messagingSenderId: '1234567890',
-              projectId: 'demo-drive-local',
-              storageBucket: 'demo-drive-local.appspot.com',
-              databaseURL:
-                  'https://demo-drive-local-default-rtdb.firebaseio.com',
+          ? FirebaseOptions(
+              apiKey: apiKey.isEmpty ? 'drive-local-api-key' : apiKey,
+              appId: appId.isEmpty
+                  ? '1:1234567890:android:drive-local'
+                  : appId,
+              messagingSenderId: senderId.isEmpty ? '1234567890' : senderId,
+              projectId: emulatorProjectId,
+              storageBucket: storageBucket.isEmpty
+                  ? '$emulatorProjectId.appspot.com'
+                  : storageBucket,
+              databaseURL: databaseUrl.isEmpty
+                  ? 'https://$emulatorProjectId-default-rtdb.firebaseio.com'
+                  : databaseUrl,
             )
           : FirebaseOptions(
               apiKey: apiKey,
