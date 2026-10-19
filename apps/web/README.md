@@ -38,6 +38,10 @@ Populate \`.env.local\` from your **Firebase Web app configuration** in a dedica
 6. Create and seed active BDT pricing through trusted backend/Admin. Without this, fare quotes correctly fail rather than invent prices.
 7. Test Phone OTP with Firebase's authorized test phone numbers first; real SMS requires appropriate billing/quota and region configuration.
 
+## Vercel
+
+The repo includes `apps/web/vercel.json` for SPA route fallback and baseline security headers. To deploy, import `shoraimw/CSE412_Drive` into Vercel and set **Root Directory** to `apps/web`. Use `npm run build` as the build command and `dist` as the output directory. Add the staging Firebase Web configuration as project environment variables, then deploy a Preview first. Add the preview hostname to Firebase Authentication's authorized domains and verify the end-to-end flow before promoting to Production.
+
 ## Netlify
 
 \`netlify.toml\` sets base directory \`apps/web\`, build command \`npm run build\`, publish directory \`dist\`, SPA fallback and baseline security headers. Connect this GitHub repository to the user's Netlify account and choose the customer website deployment. Add the same staging Firebase Web config as Netlify environment variables. Keep emulator mode false in deployed environments.
