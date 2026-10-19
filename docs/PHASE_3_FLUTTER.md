@@ -83,30 +83,16 @@ flutter test
 
 ## 4. Local Firebase Emulator setup
 
-Terminal A (in the repository root):
+Keep all core backend services local while testing: Authentication 9099, Functions 5001 (asia-south1), Firestore 8080, Realtime Database 9000, Storage 9199 and Emulator UI 4000.
 
-~~~powershell
-npm install
-npm --prefix services/functions install
-npm run build
-npm run emulators
-~~~
+There are two supported modes:
 
-Phase 2 emulators default to these ports: Authentication 9099, Firestore 8080, Functions 5001 (asia-south1), Realtime Database 9000, Storage 9199, Emulator UI 4000.
+- **Demo-only mode:** run without a config file. The app uses synthetic values and the `demo-drive-local` project. This is suitable for basic local testing; native Google sign-in needs real OAuth/Firebase configuration.
+- **Google sign-in with local backend emulators:** keep the ignored file `apps/mobile/config/firebase.local.json` with the Firebase app configuration. The app uses its API key, app ID, sender ID and project ID while the core Firebase services are redirected to local emulators. The project ID must match between the app config and the emulator command.
 
-Terminal B (in apps/mobile):
+### Terminal A — repository root
 
-~~~powershell
-flutter devices
-flutter run --dart-define=DRIVE_EMULATOR=true
-~~~
-
-There are two supported local modes:
-
-- **Demo-only mode:** run without a config file. The app uses synthetic values and the `demo-drive-local` project. This is useful for local email/password testing; native Google sign-in needs real OAuth/Firebase configuration.
-- **Google sign-in + local backend emulators:** keep the ignored file `apps/mobile/config/firebase.local.json` with your Firebase app configuration. The app uses its API key, app ID, sender ID and project ID, while Auth, Functions, Firestore, Realtime Database and Storage are redirected to local emulators. The project ID must match between the app config and the emulator command.
-
-In Terminal A (repository root), use the same project ID as the local config and give Functions discovery enough time (the value is **milliseconds**, so 60000 means 60 seconds):
+Set the Functions discovery timeout to **60000 milliseconds** (60 seconds), build the backend, and start emulators with the same project ID used by the app:
 
 ~~~powershell
 $env:FUNCTIONS_DISCOVERY_TIMEOUT = "60000"
@@ -115,13 +101,23 @@ npm.cmd --prefix services/functions run build
 npx.cmd firebase-tools emulators:start --project $cfg.FIREBASE_PROJECT_ID --only auth,firestore,database,storage,functions
 ~~~
 
-In Terminal B (`apps/mobile`):
+If using demo-only mode without `firebase.local.json`, use `--project demo-drive-local` instead. Do not start a second emulator session while the first is running. If startup reports ports already taken, stop the existing Firebase emulator process before retrying. Wait until the CLI says all emulators are ready and check that it does **not** report a failed Functions discovery before launching Flutter.
+
+### Terminal B — `apps/mobile`
+
+For Google sign-in with the local backend:
 
 ~~~powershell
 flutter run --dart-define=DRIVE_EMULATOR=true --dart-define-from-file=config/firebase.local.json
 ~~~
 
-Keep `DRIVE_EMULATOR=true` enabled whenever using this local emulator setup. Do not run tests against production services. The Android Emulator reaches the workstation at `10.0.2.2`; iOS Simulator uses `127.0.0.1`.
+For demo-only testing:
+
+~~~powershell
+flutter run --dart-define=DRIVE_EMULATOR=true
+~~~
+
+Keep `DRIVE_EMULATOR=true` enabled whenever using the local emulator setup. Never run the app against production services by mistake. The Android Emulator reaches the workstation at `10.0.2.2`; iOS Simulator uses `127.0.0.1`.
 
 For a physical device on a trusted development LAN, use an accessible workstation address with explicit opt-in:
 
@@ -129,9 +125,7 @@ For a physical device on a trusted development LAN, use an accessible workstatio
 flutter run --dart-define=DRIVE_EMULATOR=true --dart-define=DRIVE_EMULATOR_HOST=192.168.1.20
 ~~~
 
-Replace the example local IP with the actual host, and bind emulator services to the required interface using a secure development network. Do not expose Firebase emulators to the public internet.
-
-The Firebase Authentication Emulator UI at http://127.0.0.1:4000/auth and local logs help verify email links/OTP. Native Google sign-in may still need actual Google OAuth configuration; it is not an offline mock.
+Replace the example local IP with the actual host and bind emulator services to the required interface using a secure development network. Do not expose Firebase emulators to the public internet. The Authentication Emulator UI is available at http://127.0.0.1:4000/auth.
 
 ## 5. Set up a real Firebase project (instead of emulator)
 
