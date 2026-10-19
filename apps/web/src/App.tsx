@@ -25,7 +25,7 @@ async function call<T>(name: string, data: Record<string, unknown>): Promise<T> 
   return response.data;
 }
 
-function PlaceField({label, onResolved}: {label: string; onResolved: (point: RidePoint) => void}) {
+function PlaceField({label, signedIn, onNeedAuth, onResolved}: {label: string; signedIn: boolean; onNeedAuth: () => void; onResolved: (point: RidePoint) => void}) {
   const [value, setValue] = useState("");
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -39,8 +39,19 @@ function PlaceField({label, onResolved}: {label: string; onResolved: (point: Rid
     setValue(next);
     setError("");
     if (timer.current) clearTimeout(timer.current);
-    if (next.trim().length < 3 || !functions) {
+    if (next.trim().length < 3) {
       setSuggestions([]);
+      return;
+    }
+    if (!firebaseReady || !functions) {
+      setSuggestions([]);
+      setError("Location search is not configured on this deployment. Firebase web configuration is missing.");
+      return;
+    }
+    if (!signedIn) {
+      setSuggestions([]);
+      setError("Sign in before searching for pickup and destination.");
+      onNeedAuth();
       return;
     }
     if (!session.current) session.current = crypto.randomUUID();
@@ -396,8 +407,8 @@ export default function App() {
         {tab === "ride" && <div className="workspace-grid">
           <div className="panel booking-panel">
             <div className="panel-title"><span className="panel-number">01</span><div><h3>Where are you going?</h3><p>Search a pickup and destination to get a trusted quote.</p></div></div>
-            <PlaceField label="Pickup location" onResolved={point => {setPickup(point);setQuote(null);}} />
-            <PlaceField label="Destination" onResolved={point => {setDestination(point);setQuote(null);}} />
+            <PlaceField label="Pickup location" signedIn={Boolean(user)} onNeedAuth={() => setAuthOpen(true)} onResolved={point => {setPickup(point);setQuote(null);}} />
+            <PlaceField label="Destination" signedIn={Boolean(user)} onNeedAuth={() => setAuthOpen(true)} onResolved={point => {setDestination(point);setQuote(null);}} />
             <div className="field"><label>Choose a ride</label><div className="vehicle-options">
               {([{id:"bike",label:"Bike",glyph:"↗"},{id:"car",label:"Car",glyph:"▰"},{id:"premium",label:"Premium",glyph:"✦"}] as const).map(v =>
                 <button key={v.id} className={"vehicle-option " + (vehicleType === v.id ? "chosen" : "")} onClick={() => {setVehicleType(v.id);setQuote(null);}}>
