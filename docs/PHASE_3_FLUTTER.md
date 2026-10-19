@@ -97,6 +97,8 @@ Set the Functions discovery timeout to **60000 milliseconds** (60 seconds), buil
 ~~~powershell
 $env:FUNCTIONS_DISCOVERY_TIMEOUT = "60000"
 $cfg = Get-Content ".\\apps\\mobile\\config\\firebase.local.json" -Raw | ConvertFrom-Json
+# One-time setup if the Firebase CLI says you are not authenticated:
+npx.cmd firebase-tools login
 npm.cmd --prefix services/functions run build
 npx.cmd firebase-tools emulators:start --project $cfg.FIREBASE_PROJECT_ID --only auth,firestore,database,storage,functions
 ~~~
