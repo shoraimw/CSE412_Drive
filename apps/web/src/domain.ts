@@ -71,6 +71,15 @@ export function displayError(error: unknown): string {
   if (code.includes("functions/not-found")) {
     return "The required Firebase Cloud Function is not deployed to the configured project/region. Deploy the staging functions and retry.";
   }
+  if (code === "functions/internal" || code === "internal") {
+    return "The DRIVE server failed while processing this request. For place search, check Firebase Functions logs for autocompletePlaces in asia-south1 and verify the GOOGLE_MAPS_SERVER_KEY secret, Places API (New), billing, and API-key restrictions. For fare estimates, also verify the active pricing configuration and Routes API.";
+  }
+  if (code === "functions/unknown" || code === "unknown") {
+    return "The DRIVE backend returned an unknown error. Check Cloud Functions logs for the callable name and timestamp, then verify its secrets and required Firebase configuration.";
+  }
+  if (code === "functions/resource-exhausted") {
+    return "The service reached a quota or rate limit. Check Firebase/Google Cloud usage and retry after the quota resets.";
+  }
   if (code.includes("permission-denied")) return "You do not have permission to do that.";
   if (code.includes("unauthenticated")) return "Please sign in first, then retry.";
   if (code.includes("unavailable") || code.includes("network-request-failed")) {

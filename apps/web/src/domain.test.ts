@@ -16,6 +16,10 @@ describe("DRIVE web formatting and validation", () => {
     expect(validBangladeshPhone("01712345678")).toBe(true);
     expect(validBangladeshPhone("123")).toBe(false);
   });
+  it("explains server internal errors with actionable backend checks", () => {
+    expect(displayError({code: "functions/internal"})).toContain("GOOGLE_MAPS_SERVER_KEY");
+    expect(displayError({code: "functions/internal"})).toContain("Cloud Functions logs");
+  });
   it("does not expose opaque unknown errors", () => {
     expect(displayError({code: "permission-denied"})).toContain("permission");
     expect(displayError(null)).toContain("try again");

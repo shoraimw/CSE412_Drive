@@ -309,6 +309,24 @@ export default function App() {
     finally {setBusy(false);}
   }
 
+  async function reportSafety(rideId: string) {
+    if (!requireUser()) return;
+    const confirmed = window.confirm(
+      "Record an SOS safety incident for this ride? This creates a report for the DRIVE admin team but does NOT contact emergency services or share your location with responders."
+    );
+    if (!confirmed) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await call<{incidentId: string; recorded: boolean; notified: boolean; warning?: string}>(
+        "reportSafetyIncident", {rideId, type: "sos", note: "Rider requested SOS from DRIVE web"}
+      );
+      setNotice(result.notified
+        ? "Safety incident recorded and alert sent."
+        : "Safety incident recorded for admin review. No emergency alert was sent. If you are in immediate danger in Bangladesh, call 999 directly.");
+    } catch (e) { setError(displayError(e)); }
+    finally { setBusy(false); }
+  }
+
   async function payCash(rideId: string) {
     setBusy(true);setError("");setNotice("");
     try {
@@ -439,7 +457,7 @@ export default function App() {
           {user && <div className="panel booking-history"><h3>Your rental bookings</h3>{bookings.length === 0 ? <p className="muted">Your confirmed reservations will appear here.</p> : bookings.map(booking => <div className="history-row" key={booking.id}><div><b>{booking.vehicleId || "Rental vehicle"}</b><small>{booking.status || "pending"} · {booking.startAt?.toDate?.().toLocaleString() || "Start time pending"}</small></div><b>{formatBdt(booking.totalMinor || 0)}</b>{booking.status === "confirmed" && <button className="button outline compact" disabled={busy} onClick={() => void cancelRental(booking.id)}>Cancel</button>}</div>)}</div>}
         </div>}
 
-        {tab === "trips" && <div className="panel trips-panel"><div className="panel-title"><span className="panel-number">02</span><div><h3>Recent rides</h3><p>Only your own rides and payment records are loaded.</p></div></div>{!user ? <div className="empty-state"><h3>Sign in to view your trips</h3><button className="button primary" onClick={() => setAuthOpen(true)}>Sign in</button></div> : rides.length === 0 ? <div className="empty-state"><h3>No rides yet</h3><p>Your confirmed ride requests will appear here.</p></div> : rides.map(ride => {const payment = payments[ride.id];return <article className="trip-row" key={ride.id}><div className="trip-route"><span className="route-point green"></span><div><b>{ride.pickup?.label || "Pickup location"}</b><small>to {ride.destination?.label || "Destination"}</small></div></div><div className="trip-meta"><span className="pill">{(ride.status || "unknown").replaceAll("_", " ")}</span><b>{formatBdt(ride.fare?.totalMinor || 0)}</b><small>{ride.vehicleType || "Ride"} · {ride.createdAt?.toDate?.().toLocaleString() || "Just now"}</small></div>{ride.status === "completed" && !["paid_test","cash_due","cash_reported_received"].includes(payment?.status || "") && <div className="trip-payments"><button className="button outline compact" disabled={busy} onClick={() => void payCash(ride.id)}>Choose cash</button><button className="button primary compact" disabled={busy} onClick={() => void payStripeTest(ride.id)}>Pay with Stripe TEST</button></div>}{payment && <small className="payment-status">Payment: {payment.method || "method pending"} · {payment.status || "status pending"}</small>}</article>;})}</div>}
+        {tab === "trips" && <div className="panel trips-panel"><div className="panel-title"><span className="panel-number">02</span><div><h3>Recent rides</h3><p>Only your own rides and payment records are loaded.</p></div></div>{!user ? <div className="empty-state"><h3>Sign in to view your trips</h3><button className="button primary" onClick={() => setAuthOpen(true)}>Sign in</button></div> : rides.length === 0 ? <div className="empty-state"><h3>No rides yet</h3><p>Your confirmed ride requests will appear here.</p></div> : rides.map(ride => {const payment = payments[ride.id];return <article className="trip-row" key={ride.id}><div className="trip-route"><span className="route-point green"></span><div><b>{ride.pickup?.label || "Pickup location"}</b><small>to {ride.destination?.label || "Destination"}</small></div></div><div className="trip-meta"><span className="pill">{(ride.status || "unknown").replaceAll("_", " ")}</span><b>{formatBdt(ride.fare?.totalMinor || 0)}</b><small>{ride.vehicleType || "Ride"} · {ride.createdAt?.toDate?.().toLocaleString() || "Just now"}</small></div>{["matching","accepted","driver_arriving","in_progress"].includes(ride.status || "") && <div className="trip-payments"><button className="button outline compact" disabled={busy} onClick={() => void reportSafety(ride.id)}>Record SOS report</button><small className="tiny muted">Admin incident record only; emergency services are not contacted.</small></div>}{ride.status === "completed" && !["paid_test","cash_due","cash_reported_received"].includes(payment?.status || "") && <div className="trip-payments"><button className="button outline compact" disabled={busy} onClick={() => void payCash(ride.id)}>Choose cash</button><button className="button primary compact" disabled={busy} onClick={() => void payStripeTest(ride.id)}>Pay with Stripe TEST</button></div>}{payment && <small className="payment-status">Payment: {payment.method || "method pending"} · {payment.status || "status pending"}</small>}</article>;})}</div>}
       </section>
     </main>
 
